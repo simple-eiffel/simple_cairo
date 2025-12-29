@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<system xmlns="http://www.eiffel.com/developers/xml/configuration-1-23-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-23-0 http://www.eiffel.com/developers/xml/configuration-1-23-0.xsd" name="simple_cairo" uuid="A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D" library_target="simple_cairo">
+	<description>Simple Cairo - Cross-platform 2D graphics library wrapper</description>
+	<target name="simple_cairo">
+		<root all_classes="true"/>
+		<file_rule>
+			<exclude>/EIFGENs$</exclude>
+			<exclude>/\..*$</exclude>
+		</file_rule>
+		<option warning="warning">
+			<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>
+		</option>
+		<setting name="console_application" value="true"/>
+		<setting name="dead_code_removal" value="feature"/>
+		<capability>
+			<concurrency support="scoop" use="thread"/>
+			<void_safety support="all"/>
+		</capability>
+		<external_include location="$(SIMPLE_EIFFEL)/simple_cairo/Clib"/>
+		<!-- Cairo include path - adjust based on installation -->
+		<external_include location="$(CAIRO_PATH)/include/cairo" if="$(CAIRO_PATH)"/>
+		<external_include location="/usr/include/cairo" unless="$(CAIRO_PATH)"/>
+		<!-- Cairo library path -->
+		<external_library location="$(CAIRO_PATH)/lib/cairo.lib" if="$(CAIRO_PATH)"/>
+		<external_library location="-lcairo" unless="$(CAIRO_PATH)"/>
+		<library name="base" location="$ISE_LIBRARY\library\base\base.ecf"/>
+		<cluster name="src" location=".\src\" recursive="true"/>
+	</target>
+	<target name="simple_cairo_tests" extends="simple_cairo">
+		<root class="TEST_APP" feature="make"/>
+		<option warning="warning">
+			<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>
+		</option>
+		<setting name="console_application" value="true"/>
+		<library name="simple_testing" location="$SIMPLE_EIFFEL/simple_testing/simple_testing.ecf"/>
+		<library name="testing" location="$ISE_LIBRARY\library\testing\testing.ecf"/>
+		<cluster name="tests" location=".\testing\" recursive="true"/>
+	</target>
+</system>
