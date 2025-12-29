@@ -17,12 +17,6 @@
 			<void_safety support="all"/>
 		</capability>
 		<external_include location="$(SIMPLE_EIFFEL)/simple_cairo/Clib"/>
-		<!-- Cairo include path - adjust based on installation -->
-		<external_include location="$(CAIRO_PATH)/include/cairo" if="$(CAIRO_PATH)"/>
-		<external_include location="/usr/include/cairo" unless="$(CAIRO_PATH)"/>
-		<!-- Cairo library path -->
-		<external_library location="$(CAIRO_PATH)/lib/cairo.lib" if="$(CAIRO_PATH)"/>
-		<external_library location="-lcairo" unless="$(CAIRO_PATH)"/>
 		<library name="base" location="$ISE_LIBRARY\library\base\base.ecf"/>
 		<cluster name="src" location=".\src\" recursive="true"/>
 	</target>

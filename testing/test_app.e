@@ -7,9 +7,6 @@ note
 class
 	TEST_APP
 
-inherit
-	SIMPLE_TEST_RUNNER
-
 create
 	make
 
@@ -17,14 +14,14 @@ feature {NONE} -- Initialization
 
 	make
 			-- Run test suite.
+		local
+			l_runner: EQA_TEST_SET_RUNNER
+			l_tests: LIB_TESTS
 		do
-			create tests.make
-			run_tests (tests)
+			create l_tests.default_create
+			create l_runner
+			l_runner.run_all (l_tests)
+			print ("Tests completed%N")
 		end
-
-feature {NONE} -- Implementation
-
-	tests: LIB_TESTS
-			-- Test suite instance.
 
 end
