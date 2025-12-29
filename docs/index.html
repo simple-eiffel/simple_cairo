@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>simple_cairo - 2D Graphics Library for Eiffel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="images/logo.png" alt="simple_* logo" class="logo">
+        </div>
+        <h1>simple_cairo</h1>
+        <p class="tagline">Cross-platform 2D Graphics for Eiffel</p>
+        <div class="badges">
+            <span class="badge badge-version">v1.0.0</span>
+            <span class="badge badge-license">MIT</span>
+        </div>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#quick-start">Quick Start</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#api">API Reference</a></li>
+            <li><a href="https://github.com/simple-eiffel/simple_cairo">GitHub</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section id="overview">
+            <h2>Overview</h2>
+            <p>
+                <strong>simple_cairo</strong> is a production-ready 2D graphics library for Eiffel that wraps
+                the Cairo graphics library. It provides a <strong>fluent API</strong> for drawing shapes,
+                text, gradients, and waveform visualizations with full <strong>Design by Contract</strong> support.
+            </p>
+            <p>
+                Part of the <a href="https://github.com/simple-eiffel">Simple Eiffel</a> ecosystem.
+            </p>
+        </section>
+
+        <section id="quick-start">
+            <h2>Quick Start</h2>
+
+            <h3>Installation</h3>
+            <ol>
+                <li>Install Cairo library on your system (see <a href="https://www.cairographics.org/download/">cairographics.org</a>)</li>
+                <li>Set the environment variable:
+<pre><code>export SIMPLE_EIFFEL=/d/prod</code></pre>
+                </li>
+                <li>Add to your ECF file:
+<pre><code>&lt;library name="simple_cairo" location="$SIMPLE_EIFFEL/simple_cairo/simple_cairo.ecf"/&gt;</code></pre>
+                </li>
+            </ol>
+
+            <h3>Basic Drawing</h3>
+<pre><code><span class="keyword">local</span>
+    cairo: <span class="type">SIMPLE_CAIRO</span>
+    surface: <span class="type">CAIRO_SURFACE</span>
+    ctx: <span class="type">CAIRO_CONTEXT</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> cairo.make
+    surface := cairo.create_surface (400, 300)
+    ctx := cairo.create_context (surface)
+
+    <span class="comment">-- Clear to white</span>
+    ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+
+    <span class="comment">-- Draw blue rounded rectangle</span>
+    ctx.set_color_hex (0x3498DB)
+       .rounded_rectangle (50, 50, 300, 200, 20)
+       .fill.do_nothing
+
+    <span class="comment">-- Draw red circle outline</span>
+    ctx.set_color_hex (0xE74C3C)
+       .set_line_width (4.0)
+       .stroke_circle (200, 150, 50).do_nothing
+
+    <span class="comment">-- Save to file</span>
+    surface.write_png (<span class="string">"output.png"</span>)
+
+    ctx.destroy
+    surface.destroy
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="features">
+            <h2>Key Features</h2>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>Fluent API</h4>
+                    <p>Chain drawing operations naturally with method chaining and .do_nothing termination.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>Surface Types</h4>
+                    <p>ARGB32, RGB24, A8, A1 image formats for various use cases.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>Shape Drawing</h4>
+                    <p>Rectangles, rounded rectangles, circles, lines, arcs, and Bezier curves.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>Gradients</h4>
+                    <p>Linear and radial gradients with multiple color stops.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>Text Rendering</h4>
+                    <p>Font selection, sizing, and anti-aliased text rendering.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>Waveform Visualization</h4>
+                    <p>Audio waveform drawing from PCM samples for speech applications.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>Transformations</h4>
+                    <p>Translate, scale, rotate operations on the drawing context.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="api">
+            <h2>API Reference</h2>
+
+            <div class="api-section">
+                <h3>SIMPLE_CAIRO (Facade)</h3>
+                <p>Factory class for creating surfaces, contexts, and gradients.</p>
+                <div class="signature">create_surface (width, height: INTEGER): CAIRO_SURFACE</div>
+                <div class="signature">create_context (surface: CAIRO_SURFACE): CAIRO_CONTEXT</div>
+                <div class="signature">vertical_gradient (y1, y2: REAL_64): CAIRO_GRADIENT</div>
+                <div class="signature">horizontal_gradient (x1, x2: REAL_64): CAIRO_GRADIENT</div>
+                <div class="signature">radial_gradient (cx, cy, radius: REAL_64): CAIRO_GRADIENT</div>
+            </div>
+
+            <div class="api-section">
+                <h3>CAIRO_SURFACE</h3>
+                <p>Image surface wrapper with PNG export.</p>
+                <div class="signature">width: INTEGER</div>
+                <div class="signature">height: INTEGER</div>
+                <div class="signature">write_png (filename: STRING): BOOLEAN</div>
+                <div class="signature">destroy</div>
+            </div>
+
+            <div class="api-section">
+                <h3>CAIRO_CONTEXT</h3>
+                <p>Drawing context with fluent API. All drawing methods return Current for chaining.</p>
+                <div class="signature">set_color_rgb (r, g, b: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">set_color_rgba (r, g, b, a: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">set_color_hex (color: NATURAL_32): CAIRO_CONTEXT</div>
+                <div class="signature">fill_rect (x, y, w, h: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">stroke_rect (x, y, w, h: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">fill_circle (cx, cy, radius: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">stroke_circle (cx, cy, radius: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">rounded_rectangle (x, y, w, h, radius: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">line (x1, y1, x2, y2: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">set_line_width (width: REAL_64): CAIRO_CONTEXT</div>
+                <div class="signature">set_gradient (grad: CAIRO_GRADIENT): CAIRO_CONTEXT</div>
+                <div class="signature">paint: CAIRO_CONTEXT</div>
+                <div class="signature">fill: CAIRO_CONTEXT</div>
+                <div class="signature">stroke: CAIRO_CONTEXT</div>
+                <div class="signature">draw_waveform_i16 (data: POINTER; count, x, y, w, h: INTEGER): CAIRO_CONTEXT</div>
+            </div>
+
+            <div class="api-section">
+                <h3>CAIRO_GRADIENT</h3>
+                <p>Gradient pattern with color stops.</p>
+                <div class="signature">add_stop_rgb (offset, r, g, b: REAL_64): CAIRO_GRADIENT</div>
+                <div class="signature">add_stop_rgba (offset, r, g, b, a: REAL_64): CAIRO_GRADIENT</div>
+                <div class="signature">add_stop_hex (offset: REAL_64; color: NATURAL_32): CAIRO_GRADIENT</div>
+                <div class="signature">destroy</div>
+            </div>
+        </section>
+
+        <section id="gradients">
+            <h2>Gradients Example</h2>
+<pre><code><span class="keyword">local</span>
+    grad: <span class="type">CAIRO_GRADIENT</span>
+<span class="keyword">do</span>
+    <span class="comment">-- Create vertical gradient</span>
+    grad := cairo.vertical_gradient (0, 100)
+    grad.add_stop_hex (0.0, 0x3498DB)   <span class="comment">-- Blue at top</span>
+        .add_stop_hex (1.0, 0x2ECC71)   <span class="comment">-- Green at bottom</span>
+        .do_nothing
+
+    <span class="comment">-- Fill rectangle with gradient</span>
+    ctx.set_gradient (grad)
+       .fill_rect (0, 0, 200, 100).do_nothing
+
+    grad.destroy
+<span class="keyword">end</span></code></pre>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 simple_* ecosystem. MIT License.</p>
+        <p>
+            <a href="https://github.com/simple-eiffel/simple_cairo">GitHub</a> |
+            <a href="https://simple-eiffel.github.io">Documentation</a>
+        </p>
+    </footer>
+</body>
+</html>

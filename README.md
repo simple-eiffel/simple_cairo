@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/simple-eiffel/claude_eiffel_op_docs/main/artwork/LOGO.png" alt="simple_ library logo" width="400">
+</p>
+
 # simple_cairo
 
-**[GitHub](https://github.com/simple-eiffel/simple_cairo)**
+**[Documentation](https://simple-eiffel.github.io/simple_cairo/)** | **[GitHub](https://github.com/simple-eiffel/simple_cairo)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Eiffel](https://img.shields.io/badge/Eiffel-25.02-blue.svg)](https://www.eiffel.org/)
@@ -9,6 +13,10 @@
 **Cross-platform 2D graphics library** wrapping Cairo for Eiffel applications.
 
 Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
+
+## Status
+
+**Production** - Core functionality complete, edge-case tests passing
 
 ## Features
 
@@ -52,24 +60,23 @@ local
     cairo: SIMPLE_CAIRO
     surface: CAIRO_SURFACE
     ctx: CAIRO_CONTEXT
-    l_dummy: CAIRO_CONTEXT
 do
     create cairo.make
     surface := cairo.create_surface (400, 300)
     ctx := cairo.create_context (surface)
 
     -- Clear to white
-    l_dummy := ctx.set_color_rgb (1.0, 1.0, 1.0).paint
+    ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
 
     -- Draw blue rounded rectangle
-    l_dummy := ctx.set_color_hex (0x3498DB)
-                  .rounded_rectangle (50, 50, 300, 200, 20)
-                  .fill
+    ctx.set_color_hex (0x3498DB)
+       .rounded_rectangle (50, 50, 300, 200, 20)
+       .fill.do_nothing
 
     -- Draw red circle outline
-    l_dummy := ctx.set_color_hex (0xE74C3C)
-                  .set_line_width (4.0)
-                  .stroke_circle (200, 150, 50)
+    ctx.set_color_hex (0xE74C3C)
+       .set_line_width (4.0)
+       .stroke_circle (200, 150, 50).do_nothing
 
     -- Save to file
     surface.write_png ("output.png")
@@ -84,17 +91,16 @@ end
 ```eiffel
 local
     grad: CAIRO_GRADIENT
-    l_grad: CAIRO_GRADIENT
-    l_ctx: CAIRO_CONTEXT
 do
     -- Create vertical gradient
     grad := cairo.vertical_gradient (0, 100)
-    l_grad := grad.add_stop_hex (0.0, 0x3498DB)   -- Blue at top
-                  .add_stop_hex (1.0, 0x2ECC71)   -- Green at bottom
+    grad.add_stop_hex (0.0, 0x3498DB)   -- Blue at top
+        .add_stop_hex (1.0, 0x2ECC71)   -- Green at bottom
+        .do_nothing
 
     -- Fill rectangle with gradient
-    l_ctx := ctx.set_gradient (grad)
-                .fill_rect (0, 0, 200, 100)
+    ctx.set_gradient (grad)
+       .fill_rect (0, 0, 200, 100).do_nothing
 
     grad.destroy
 end
@@ -106,9 +112,9 @@ For audio/speech applications:
 
 ```eiffel
 -- Draw waveform from int16 PCM samples
-l_dummy := ctx.set_color_hex (0x3498DB)
-              .set_line_width (1.0)
-              .draw_waveform_i16 (samples_pointer, sample_count, 10, 10, 380, 100)
+ctx.set_color_hex (0x3498DB)
+   .set_line_width (1.0)
+   .draw_waveform_i16 (samples_pointer, sample_count, 10, 10, 380, 100).do_nothing
 ```
 
 ## API Classes
