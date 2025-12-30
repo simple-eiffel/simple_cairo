@@ -17,6 +17,11 @@
 			<void_safety support="all"/>
 		</capability>
 		<external_include location="$(SIMPLE_EIFFEL)/simple_cairo/Clib"/>
+		<external_object location="$(SIMPLE_EIFFEL)/simple_cairo/lib/cairo.lib">
+			<condition>
+				<platform value="windows"/>
+			</condition>
+		</external_object>
 		<library name="base" location="$ISE_LIBRARY\library\base\base.ecf"/>
 		<cluster name="src" location=".\src\" recursive="true"/>
 	</target>
