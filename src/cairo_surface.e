@@ -23,7 +23,7 @@ class
 	CAIRO_SURFACE
 
 create
-	make, make_with_format
+	make, make_with_format, make_from_handle
 
 feature {NONE} -- Initialization
 
@@ -50,10 +50,26 @@ feature {NONE} -- Initialization
 			handle_set: handle /= default_pointer implies is_valid
 		end
 
+	make_from_handle (a_handle: POINTER)
+			-- Create wrapper around existing cairo_surface_t.
+			-- Used by CAIRO_PDF_SURFACE to provide compatible interface.
+		require
+			valid_handle: a_handle /= default_pointer
+		do
+			handle := a_handle
+			is_shared := True
+		ensure
+			handle_set: handle = a_handle
+			is_shared: is_shared
+		end
+
 feature -- Access
 
 	handle: POINTER
 			-- Underlying cairo_surface_t pointer.
+
+	is_shared: BOOLEAN
+			-- Is this a shared handle (don't destroy on cleanup)?
 
 	width: INTEGER
 			-- Surface width in pixels.
@@ -127,9 +143,12 @@ feature -- Disposal
 
 	destroy
 			-- Release surface resources.
+			-- Does nothing if surface is shared (created via make_from_handle).
 		do
-			if handle /= default_pointer then
+			if handle /= default_pointer and not is_shared then
 				c_surface_destroy (handle)
+				handle := default_pointer
+			elseif is_shared then
 				handle := default_pointer
 			end
 		ensure

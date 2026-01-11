@@ -32,6 +32,60 @@ static cairo_surface_t* sc_surface_create(int width, int height) {
     return cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
 }
 
+/* ============ PDF SURFACE ============ */
+
+#ifdef CAIRO_HAS_PDF_SURFACE
+#include <cairo-pdf.h>
+
+/* Create a PDF surface
+ * width/height in points (72 points = 1 inch)
+ * A4 = 595 x 842 points, Letter = 612 x 792 points
+ */
+static cairo_surface_t* sc_pdf_surface_create(const char* filename, double width, double height) {
+    if (!filename) return NULL;
+    return cairo_pdf_surface_create(filename, width, height);
+}
+
+/* Set PDF page size (call before drawing each page) */
+static void sc_pdf_surface_set_size(cairo_surface_t* surface, double width, double height) {
+    if (surface) cairo_pdf_surface_set_size(surface, width, height);
+}
+
+/* Show page and start new one (for multi-page PDFs) */
+static void sc_pdf_show_page(cairo_t* cr) {
+    if (cr) cairo_show_page(cr);
+}
+
+/* Add document metadata */
+static void sc_pdf_set_metadata(cairo_surface_t* surface, int metadata_type, const char* value) {
+    if (!surface || !value) return;
+    cairo_pdf_metadata_t mt;
+    switch (metadata_type) {
+        case 0: mt = CAIRO_PDF_METADATA_TITLE; break;
+        case 1: mt = CAIRO_PDF_METADATA_AUTHOR; break;
+        case 2: mt = CAIRO_PDF_METADATA_SUBJECT; break;
+        case 3: mt = CAIRO_PDF_METADATA_KEYWORDS; break;
+        case 4: mt = CAIRO_PDF_METADATA_CREATOR; break;
+        default: return;
+    }
+    cairo_pdf_surface_set_metadata(surface, mt, value);
+}
+
+#else
+/* Stubs when PDF support not available */
+static cairo_surface_t* sc_pdf_surface_create(const char* filename, double width, double height) {
+    (void)filename; (void)width; (void)height;
+    return NULL;
+}
+static void sc_pdf_surface_set_size(cairo_surface_t* surface, double width, double height) {
+    (void)surface; (void)width; (void)height;
+}
+static void sc_pdf_show_page(cairo_t* cr) { (void)cr; }
+static void sc_pdf_set_metadata(cairo_surface_t* surface, int metadata_type, const char* value) {
+    (void)surface; (void)metadata_type; (void)value;
+}
+#endif
+
 /* Create an image surface with specified format (0=ARGB32, 1=RGB24, 2=A8, 3=A1) */
 static cairo_surface_t* sc_surface_create_format(int format, int width, int height) {
     cairo_format_t fmt;
