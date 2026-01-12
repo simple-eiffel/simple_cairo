@@ -13,7 +13,7 @@ inherit
 			on_prepare
 		end
 
-feature {NONE} -- Setup
+feature -- Setup
 
 	on_prepare
 			-- Setup before tests.

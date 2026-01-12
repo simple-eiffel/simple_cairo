@@ -431,12 +431,13 @@ feature -- Text (Fluent API)
 
 	show_text (a_text: READABLE_STRING_GENERAL): like Current
 			-- Draw text at current position.
+			-- Supports full Unicode (UTF-8 encoded for Cairo).
 		require
 			valid: is_valid
 		local
 			l_text: C_STRING
 		do
-			create l_text.make (a_text.to_string_8)
+			create l_text.make (to_utf8 (a_text))
 			c_show_text (handle, l_text.item)
 			Result := Current
 		end
@@ -448,7 +449,7 @@ feature -- Text (Fluent API)
 		local
 			l_text: C_STRING
 		do
-			create l_text.make (a_text.to_string_8)
+			create l_text.make (to_utf8 (a_text))
 			Result := c_text_width (handle, l_text.item)
 		end
 
@@ -459,7 +460,7 @@ feature -- Text (Fluent API)
 		local
 			l_text: C_STRING
 		do
-			create l_text.make (a_text.to_string_8)
+			create l_text.make (to_utf8 (a_text))
 			Result := c_text_height (handle, l_text.item)
 		end
 
@@ -507,6 +508,23 @@ feature -- Disposal
 			end
 		ensure
 			destroyed: handle = default_pointer
+		end
+
+feature {NONE} -- UTF-8 Encoding
+
+	to_utf8 (a_text: READABLE_STRING_GENERAL): STRING_8
+			-- Convert text to UTF-8 encoded STRING_8.
+		local
+			l_s32: STRING_32
+		do
+			l_s32 := a_text.to_string_32
+			Result := utf_converter.utf_32_string_to_utf_8_string_8 (l_s32)
+		end
+
+	utf_converter: UTF_CONVERTER
+			-- UTF conversion utility.
+		once
+			create Result
 		end
 
 feature {NONE} -- C Externals
