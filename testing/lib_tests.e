@@ -429,8 +429,8 @@ feature -- Edge Case Tests
 			surface.destroy
 		end
 
-	test_zero_line_width
-			-- Test line drawing with zero width.
+	test_minimum_line_width
+			-- Test line drawing with minimum valid width.
 		note
 			testing: "edge-case"
 		local
@@ -440,13 +440,14 @@ feature -- Edge Case Tests
 			surface := cairo.create_surface (100, 100)
 			ctx := cairo.create_context (surface)
 
-			ctx.set_line_width (0.0)
+			-- Minimum positive line width (API requires positive)
+			ctx.set_line_width (0.001)
 			   .move_to (10, 10)
 			   .line_to (90, 90)
 			   .stroke.do_nothing
 
-			-- Zero width should produce hairline or nothing, but not crash
-			assert ("zero line width handled", ctx.is_valid)
+			-- Very thin width produces hairline
+			assert ("minimum line width handled", ctx.is_valid)
 			ctx.destroy
 			surface.destroy
 		end
@@ -493,8 +494,8 @@ feature -- Edge Case Tests
 			surface.destroy
 		end
 
-	test_zero_radius_circle
-			-- Test circle with zero radius.
+	test_minimum_radius_circle
+			-- Test circle with minimum valid radius.
 		note
 			testing: "edge-case"
 		local
@@ -504,11 +505,12 @@ feature -- Edge Case Tests
 			surface := cairo.create_surface (100, 100)
 			ctx := cairo.create_context (surface)
 
-			ctx.fill_circle (50, 50, 0.0).do_nothing
-			ctx.stroke_circle (50, 50, 0.0).do_nothing
+			-- Minimum positive radius (API requires positive_radius)
+			ctx.fill_circle (50, 50, 0.001).do_nothing
+			ctx.stroke_circle (50, 50, 0.001).do_nothing
 
-			-- Zero radius is degenerate but shouldn't crash
-			assert ("zero radius handled", ctx.is_valid)
+			-- Very small radius produces point-like circle
+			assert ("minimum radius handled", ctx.is_valid)
 			ctx.destroy
 			surface.destroy
 		end
