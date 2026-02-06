@@ -25,3 +25,5 @@ Documentation/
 Thumbs.db
 
 lib/
+*.epr
+*.log
