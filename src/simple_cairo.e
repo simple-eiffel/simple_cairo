@@ -129,6 +129,51 @@ feature -- Gradient Creation
 			Result := linear_gradient (a_x0, 0, a_x1, 0)
 		end
 
+feature -- Pattern Creation
+
+	solid_pattern (a_r, a_g, a_b: REAL_64): CAIRO_SOLID_PATTERN
+			-- Opaque solid-color pattern.
+		require
+			valid_r: a_r >= 0.0 and a_r <= 1.0
+			valid_g: a_g >= 0.0 and a_g <= 1.0
+			valid_b: a_b >= 0.0 and a_b <= 1.0
+		do
+			create Result.make_rgb (a_r, a_g, a_b)
+		ensure
+			result_exists: Result /= Void
+		end
+
+	solid_pattern_rgba (a_r, a_g, a_b, a_a: REAL_64): CAIRO_SOLID_PATTERN
+			-- Translucent solid-color pattern.
+		require
+			valid_r: a_r >= 0.0 and a_r <= 1.0
+			valid_g: a_g >= 0.0 and a_g <= 1.0
+			valid_b: a_b >= 0.0 and a_b <= 1.0
+			valid_a: a_a >= 0.0 and a_a <= 1.0
+		do
+			create Result.make_rgba (a_r, a_g, a_b, a_a)
+		ensure
+			result_exists: Result /= Void
+		end
+
+	surface_pattern (a_surface: CAIRO_SURFACE): CAIRO_SURFACE_PATTERN
+			-- Pattern that paints with `a_surface'.
+		require
+			surface_valid: a_surface.is_valid
+		do
+			create Result.make_from_surface (a_surface)
+		ensure
+			result_exists: Result /= Void
+		end
+
+	mesh_pattern: CAIRO_MESH_PATTERN
+			-- Empty mesh gradient; add patches with begin_patch ... end_patch.
+		do
+			create Result.make
+		ensure
+			result_exists: Result /= Void
+		end
+
 feature -- Format Constants
 
 	Format_argb32: INTEGER = 0

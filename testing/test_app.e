@@ -89,6 +89,20 @@ feature {NONE} -- Test Execution
 			run_test (agent l_tests.test_dash_rejects_all_zero, "test_dash_rejects_all_zero")
 			run_test (agent l_tests.test_clip_rectangle_rejects_zero_extent, "test_clip_rectangle_rejects_zero_extent")
 			run_test (agent l_tests.test_pop_group_requires_push, "test_pop_group_requires_push")
+
+			-- Phase B (S10)
+			run_test (agent l_tests.test_operator_clear_erases, "test_operator_clear_erases")
+			run_test (agent l_tests.test_operator_roundtrip, "test_operator_roundtrip")
+			run_test (agent l_tests.test_set_source_surface_places, "test_set_source_surface_places")
+			run_test (agent l_tests.test_surface_pattern_repeat, "test_surface_pattern_repeat")
+			run_test (agent l_tests.test_solid_pattern_paints, "test_solid_pattern_paints")
+			run_test (agent l_tests.test_gradient_extend_pad_endpoints, "test_gradient_extend_pad_endpoints")
+			run_test (agent l_tests.test_mask_surface_gates_paint, "test_mask_surface_gates_paint")
+			run_test (agent l_tests.test_mesh_corner_colors, "test_mesh_corner_colors")
+			run_test (agent l_tests.test_pattern_filter_roundtrip, "test_pattern_filter_roundtrip")
+			run_test (agent l_tests.test_arc_negative_draws, "test_arc_negative_draws")
+			run_test (agent l_tests.test_operator_rejects_unknown, "test_operator_rejects_unknown")
+			run_test (agent l_tests.test_pattern_extend_rejects_unknown, "test_pattern_extend_rejects_unknown")
 		end
 
 	run_test (a_test: PROCEDURE; a_name: STRING)

@@ -1217,4 +1217,303 @@ feature {NONE} -- Layer 0: Pixel Helpers
 			Result := seen.count
 		end
 
+feature -- Phase B: Compositing & Pattern Tests (S10)
+
+	test_operator_clear_erases
+			-- Operator_clear paints transparency over everything.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_operator"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			ctx.set_operator (ctx.Operator_clear).paint.do_nothing
+			surface.flush.do_nothing
+			assert ("cleared to transparent", pixel (surface, 5, 5) = 0)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_operator_roundtrip
+			-- Setter and getter agree.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.drawing_operator"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			assert ("default is over", ctx.drawing_operator = ctx.Operator_over)
+			ctx.set_operator (ctx.Operator_xor).do_nothing
+			assert ("xor set", ctx.drawing_operator = ctx.Operator_xor)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_set_source_surface_places
+			-- A source surface paints at its offset; Extend_none leaves the rest.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_source_surface"
+		local
+			src, dest: CAIRO_SURFACE
+			sctx, dctx: CAIRO_CONTEXT
+		do
+			src := cairo.create_surface (10, 10)
+			sctx := cairo.create_context (src)
+			sctx.set_color_rgb (1.0, 0.0, 0.0).paint.do_nothing
+			sctx.destroy
+			dest := cairo.create_surface (20, 20)
+			dctx := cairo.create_context (dest)
+			dctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			dctx.set_source_surface (src, 5.0, 5.0).paint.do_nothing
+			dest.flush.do_nothing
+			assert ("inside placed source is red", pixel (dest, 7, 7) = Red_pixel)
+			assert ("outside stays white", pixel (dest, 2, 2) = White_pixel)
+			dctx.destroy
+			dest.destroy
+			src.destroy
+		end
+
+	test_surface_pattern_repeat
+			-- Extend_repeat tiles the source.
+		note
+			testing: "covers/{CAIRO_SURFACE_PATTERN}.make_from_surface"
+		local
+			src, dest: CAIRO_SURFACE
+			sctx, dctx: CAIRO_CONTEXT
+			pat: CAIRO_SURFACE_PATTERN
+		do
+			src := cairo.create_surface (2, 2)
+			sctx := cairo.create_context (src)
+			sctx.set_color_rgb (1.0, 0.0, 0.0).fill_rect (0.0, 0.0, 1.0, 2.0).do_nothing
+			sctx.set_color_rgb (0.0, 0.0, 1.0).fill_rect (1.0, 0.0, 1.0, 2.0).do_nothing
+			sctx.destroy
+			pat := cairo.surface_pattern (src)
+			pat.set_extend (pat.Extend_repeat).set_filter (pat.Filter_nearest).do_nothing
+			dest := cairo.create_surface (8, 8)
+			dctx := cairo.create_context (dest)
+			dctx.set_pattern (pat).paint.do_nothing
+			dest.flush.do_nothing
+			assert ("x0 red", pixel (dest, 0, 0) = Red_pixel)
+			assert ("x1 blue", pixel (dest, 1, 0) = Blue_pixel)
+			assert ("x2 tiles red again", pixel (dest, 2, 0) = Red_pixel)
+			assert ("x3 tiles blue again", pixel (dest, 3, 0) = Blue_pixel)
+			pat.destroy
+			dctx.destroy
+			dest.destroy
+			src.destroy
+		end
+
+	test_solid_pattern_paints
+			-- A solid pattern paints its exact color.
+		note
+			testing: "covers/{CAIRO_SOLID_PATTERN}.make_rgb"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			pat: CAIRO_SOLID_PATTERN
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			pat := cairo.solid_pattern (0.0, 1.0, 0.0)
+			ctx.set_pattern (pat).paint.do_nothing
+			surface.flush.do_nothing
+			assert ("green painted", pixel (surface, 5, 5) = Green_pixel)
+			pat.destroy
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_gradient_extend_pad_endpoints
+			-- Beyond its stops, a padded gradient holds its end colors exactly.
+		note
+			testing: "covers/{CAIRO_PATTERN}.set_extend"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			grad: CAIRO_GRADIENT
+		do
+			surface := cairo.create_surface (30, 4)
+			ctx := cairo.create_context (surface)
+			grad := cairo.linear_gradient (5.0, 0.0, 15.0, 0.0)
+			grad.add_stop_rgb (0.0, 1.0, 0.0, 0.0).add_stop_rgb (1.0, 0.0, 0.0, 1.0).do_nothing
+			grad.set_extend (grad.Extend_pad).do_nothing
+			ctx.set_gradient (grad).paint.do_nothing
+			surface.flush.do_nothing
+			assert ("before start pads pure red", pixel (surface, 1, 1) = Red_pixel)
+			assert ("after end pads pure blue", pixel (surface, 28, 1) = Blue_pixel)
+			grad.destroy
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_mask_surface_gates_paint
+			-- The source lands only where the mask has alpha.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.mask_surface"
+		local
+			mask_s, dest: CAIRO_SURFACE
+			mctx, dctx: CAIRO_CONTEXT
+		do
+			mask_s := cairo.create_surface_format (cairo.Format_a8, 20, 20)
+			mctx := cairo.create_context (mask_s)
+			mctx.set_color_rgba (0.0, 0.0, 0.0, 1.0).fill_rect (5.0, 5.0, 10.0, 10.0).do_nothing
+			mctx.destroy
+			dest := cairo.create_surface (20, 20)
+			dctx := cairo.create_context (dest)
+			dctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			dctx.set_color_rgb (1.0, 0.0, 0.0).mask_surface (mask_s, 0.0, 0.0).do_nothing
+			dest.flush.do_nothing
+			assert ("inside mask is red", pixel (dest, 10, 10) = Red_pixel)
+			assert ("outside mask stays white", pixel (dest, 2, 2) = White_pixel)
+			dctx.destroy
+			dest.destroy
+			mask_s.destroy
+		end
+
+	test_mesh_corner_colors
+			-- A coons patch shows each corner's color near that corner.
+		note
+			testing: "covers/{CAIRO_MESH_PATTERN}.set_corner_color_rgb"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			mesh: CAIRO_MESH_PATTERN
+		do
+			surface := cairo.create_surface (20, 20)
+			ctx := cairo.create_context (surface)
+			mesh := cairo.mesh_pattern
+			mesh.begin_patch.move_to (0.0, 0.0).line_to (20.0, 0.0).line_to (20.0, 20.0).line_to (0.0, 20.0).do_nothing
+			mesh.set_corner_color_rgb (0, 1.0, 0.0, 0.0).do_nothing
+			mesh.set_corner_color_rgb (1, 0.0, 1.0, 0.0).do_nothing
+			mesh.set_corner_color_rgb (2, 0.0, 0.0, 1.0).do_nothing
+			mesh.set_corner_color_rgb (3, 1.0, 1.0, 0.0).do_nothing
+			mesh.end_patch.do_nothing
+			assert ("patch closed", not mesh.in_patch)
+			ctx.set_pattern (mesh).paint.do_nothing
+			surface.flush.do_nothing
+			assert ("corner 0 reddish", channels_near (pixel (surface, 1, 1), 255, 0, 0, 60))
+			assert ("corner 1 greenish", channels_near (pixel (surface, 18, 1), 0, 255, 0, 60))
+			assert ("corner 2 bluish", channels_near (pixel (surface, 18, 18), 0, 0, 255, 60))
+			assert ("corner 3 yellowish", channels_near (pixel (surface, 1, 18), 255, 255, 0, 60))
+			mesh.destroy
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_pattern_filter_roundtrip
+			-- Extend and filter setters agree with their getters.
+		note
+			testing: "covers/{CAIRO_PATTERN}.set_filter"
+		local
+			pat: CAIRO_SOLID_PATTERN
+		do
+			pat := cairo.solid_pattern (0.5, 0.5, 0.5)
+			pat.set_extend (pat.Extend_reflect).set_filter (pat.Filter_nearest).do_nothing
+			assert ("extend roundtrip", pat.extend_mode = pat.Extend_reflect)
+			assert ("filter roundtrip", pat.filter_mode = pat.Filter_nearest)
+			pat.destroy
+		end
+
+	test_arc_negative_draws
+			-- The clockwise arc inks pixels.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.arc_negative"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			y, ink: INTEGER
+		do
+			surface := cairo.create_surface (30, 30)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 0.0).set_line_width (2.0).do_nothing
+			ctx.arc_negative (15.0, 15.0, 10.0, 0.0, 3.14159).stroke.do_nothing
+			surface.flush.do_nothing
+			from
+				y := 0
+			until
+				y >= surface.height
+			loop
+				ink := ink + row_ink_count (surface, y)
+				y := y + 1
+			end
+			assert ("arc inked", ink > 0)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_operator_rejects_unknown
+			-- An out-of-range operator violates known_operator.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_operator"
+		local
+			surface: detachable CAIRO_SURFACE
+			ctx: detachable CAIRO_CONTEXT
+			violated, done: BOOLEAN
+		do
+			if not done then
+				surface := cairo.create_surface (8, 8)
+				ctx := cairo.create_context (surface)
+				if attached ctx as c then
+					c.set_operator (99).do_nothing
+				end
+			end
+			assert ("unknown operator rejected", violated)
+			if attached ctx as c then
+				c.destroy
+			end
+			if attached surface as s then
+				s.destroy
+			end
+		rescue
+			violated := True
+			done := True
+			retry
+		end
+
+	test_pattern_extend_rejects_unknown
+			-- An out-of-range extend mode violates known_mode.
+		note
+			testing: "covers/{CAIRO_PATTERN}.set_extend"
+		local
+			pat: detachable CAIRO_SOLID_PATTERN
+			violated, done: BOOLEAN
+		do
+			if not done then
+				pat := cairo.solid_pattern (0.1, 0.2, 0.3)
+				if attached pat as p then
+					p.set_extend (9).do_nothing
+				end
+			end
+			assert ("unknown extend rejected", violated)
+			if attached pat as p then
+				p.destroy
+			end
+		rescue
+			violated := True
+			done := True
+			retry
+		end
+
+feature {NONE} -- Phase B: Color Helpers
+
+	Blue_pixel: NATURAL_32 = 0xFF0000FF
+	Green_pixel: NATURAL_32 = 0xFF00FF00
+
+	channels_near (a_pixel: NATURAL_32; a_r, a_g, a_b, a_tol: INTEGER): BOOLEAN
+			-- Are the RGB channels of a_pixel within a_tol of the given values?
+		local
+			r, g, b: INTEGER
+		do
+			r := a_pixel.bit_shift_right (16).bit_and (0xFF).to_integer_32
+			g := a_pixel.bit_shift_right (8).bit_and (0xFF).to_integer_32
+			b := a_pixel.bit_and (0xFF).to_integer_32
+			Result := (r - a_r).abs <= a_tol and (g - a_g).abs <= a_tol and (b - a_b).abs <= a_tol
+		end
+
 end

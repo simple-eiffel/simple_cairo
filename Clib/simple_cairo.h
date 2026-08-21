@@ -667,4 +667,96 @@ static void sc_clear_dash(cairo_t* cr) {
 static void sc_surface_flush(cairo_surface_t* s)      { if (s) cairo_surface_flush(s); }
 static void sc_surface_mark_dirty(cairo_surface_t* s) { if (s) cairo_surface_mark_dirty(s); }
 
+/* ============ PHASE B (S10): COMPOSITING & PATTERNS ============ */
+
+static void sc_set_operator(cairo_t* cr, int op) {
+    if (cr) cairo_set_operator(cr, (cairo_operator_t)op);
+}
+
+static int sc_get_operator(cairo_t* cr) {
+    return cr ? (int)cairo_get_operator(cr) : 0;
+}
+
+static void sc_set_source_surface(cairo_t* cr, cairo_surface_t* s, double x, double y) {
+    if (cr && s) cairo_set_source_surface(cr, s, x, y);
+}
+
+static void sc_mask(cairo_t* cr, cairo_pattern_t* p) {
+    if (cr && p) cairo_mask(cr, p);
+}
+
+static void sc_mask_surface(cairo_t* cr, cairo_surface_t* s, double x, double y) {
+    if (cr && s) cairo_mask_surface(cr, s, x, y);
+}
+
+/* Patterns */
+static cairo_pattern_t* sc_pattern_create_rgb(double r, double g, double b) {
+    return cairo_pattern_create_rgb(r, g, b);
+}
+
+static cairo_pattern_t* sc_pattern_create_rgba(double r, double g, double b, double a) {
+    return cairo_pattern_create_rgba(r, g, b, a);
+}
+
+static cairo_pattern_t* sc_pattern_create_for_surface(cairo_surface_t* s) {
+    return s ? cairo_pattern_create_for_surface(s) : (cairo_pattern_t*)0;
+}
+
+static int sc_pattern_status(cairo_pattern_t* p) {
+    return p ? (int)cairo_pattern_status(p) : -1;
+}
+
+static void sc_pattern_set_extend(cairo_pattern_t* p, int mode) {
+    if (p) cairo_pattern_set_extend(p, (cairo_extend_t)mode);
+}
+
+static int sc_pattern_get_extend(cairo_pattern_t* p) {
+    return p ? (int)cairo_pattern_get_extend(p) : 0;
+}
+
+static void sc_pattern_set_filter(cairo_pattern_t* p, int mode) {
+    if (p) cairo_pattern_set_filter(p, (cairo_filter_t)mode);
+}
+
+static int sc_pattern_get_filter(cairo_pattern_t* p) {
+    return p ? (int)cairo_pattern_get_filter(p) : 0;
+}
+
+/* Mesh gradients */
+static cairo_pattern_t* sc_mesh_create(void) {
+    return cairo_pattern_create_mesh();
+}
+
+static void sc_mesh_begin_patch(cairo_pattern_t* p) {
+    if (p) cairo_mesh_pattern_begin_patch(p);
+}
+
+static void sc_mesh_end_patch(cairo_pattern_t* p) {
+    if (p) cairo_mesh_pattern_end_patch(p);
+}
+
+static void sc_mesh_move_to(cairo_pattern_t* p, double x, double y) {
+    if (p) cairo_mesh_pattern_move_to(p, x, y);
+}
+
+static void sc_mesh_line_to(cairo_pattern_t* p, double x, double y) {
+    if (p) cairo_mesh_pattern_line_to(p, x, y);
+}
+
+static void sc_mesh_curve_to(cairo_pattern_t* p, double x1, double y1, double x2, double y2, double x3, double y3) {
+    if (p) cairo_mesh_pattern_curve_to(p, x1, y1, x2, y2, x3, y3);
+}
+
+static void sc_mesh_set_corner_rgb(cairo_pattern_t* p, unsigned int corner, double r, double g, double b) {
+    if (p) cairo_mesh_pattern_set_corner_color_rgb(p, corner, r, g, b);
+}
+
+static void sc_mesh_set_corner_rgba(cairo_pattern_t* p, unsigned int corner, double r, double g, double b, double a) {
+    if (p) cairo_mesh_pattern_set_corner_color_rgba(p, corner, r, g, b, a);
+}
+
+static void sc_mesh_set_control_point(cairo_pattern_t* p, unsigned int point, double x, double y) {
+    if (p) cairo_mesh_pattern_set_control_point(p, point, x, y);
+}
+
 #endif /* SIMPLE_CAIRO_H */

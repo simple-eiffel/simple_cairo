@@ -211,6 +211,16 @@ feature -- Path Construction (Fluent API)
 			Result := Current
 		end
 
+	arc_negative (a_xc, a_yc, a_radius, a_angle1, a_angle2: REAL_64): like Current
+			-- Clockwise arc from angle1 to angle2 (radians).
+		require
+			valid: is_valid
+			valid_radius: a_radius >= 0
+		do
+			c_arc_negative (handle, a_xc, a_yc, a_radius, a_angle1, a_angle2)
+			Result := Current
+		end
+
 	rectangle (a_x, a_y, a_width, a_height: REAL_64): like Current
 			-- Add rectangle to path.
 		require
@@ -354,6 +364,58 @@ feature -- Convenience Shapes (Fluent API)
 			Result := Current
 		end
 
+feature -- Compositing (Fluent API)
+
+	set_operator (a_op: INTEGER): like Current
+			-- Set the compositing operator for subsequent drawing.
+		require
+			valid: is_valid
+			known_operator: a_op >= Operator_clear and a_op <= Operator_hsl_luminosity
+		do
+			c_set_operator (handle, a_op)
+			Result := Current
+		ensure
+			set: drawing_operator = a_op
+		end
+
+	drawing_operator: INTEGER
+			-- Current compositing operator.
+		require
+			valid: is_valid
+		do
+			Result := c_get_operator (handle)
+		end
+
+	set_source_surface (a_surface: CAIRO_SURFACE; a_x, a_y: REAL_64): like Current
+			-- Use `a_surface' as the paint source, placed at (a_x, a_y).
+		require
+			valid: is_valid
+			surface_valid: a_surface.is_valid
+		do
+			c_set_source_surface (handle, a_surface.handle, a_x, a_y)
+			Result := Current
+		end
+
+	mask (a_pattern: CAIRO_PATTERN): like Current
+			-- Paint the current source through `a_pattern''s alpha.
+		require
+			valid: is_valid
+			pattern_valid: a_pattern.is_valid
+		do
+			c_mask (handle, a_pattern.handle)
+			Result := Current
+		end
+
+	mask_surface (a_surface: CAIRO_SURFACE; a_x, a_y: REAL_64): like Current
+			-- Paint the current source through `a_surface''s alpha.
+		require
+			valid: is_valid
+			surface_valid: a_surface.is_valid
+		do
+			c_mask_surface (handle, a_surface.handle, a_x, a_y)
+			Result := Current
+		end
+
 feature -- Gradients (Fluent API)
 
 	set_gradient (a_gradient: CAIRO_GRADIENT): like Current
@@ -363,6 +425,16 @@ feature -- Gradients (Fluent API)
 			gradient_valid: a_gradient.is_valid
 		do
 			c_set_source_pattern (handle, a_gradient.handle)
+			Result := Current
+		end
+
+	set_pattern (a_pattern: CAIRO_PATTERN): like Current
+			-- Use any pattern - solid, gradient, surface, or mesh - as source.
+		require
+			valid: is_valid
+			pattern_valid: a_pattern.is_valid
+		do
+			c_set_source_pattern (handle, a_pattern.handle)
 			Result := Current
 		end
 
@@ -691,6 +763,38 @@ feature -- Hint Style Constants
 	Hint_style_medium: INTEGER = 3
 	Hint_style_full: INTEGER = 4
 
+feature -- Operator Constants
+
+	Operator_clear: INTEGER = 0
+	Operator_source: INTEGER = 1
+	Operator_over: INTEGER = 2
+	Operator_in: INTEGER = 3
+	Operator_out: INTEGER = 4
+	Operator_atop: INTEGER = 5
+	Operator_dest: INTEGER = 6
+	Operator_dest_over: INTEGER = 7
+	Operator_dest_in: INTEGER = 8
+	Operator_dest_out: INTEGER = 9
+	Operator_dest_atop: INTEGER = 10
+	Operator_xor: INTEGER = 11
+	Operator_add: INTEGER = 12
+	Operator_saturate: INTEGER = 13
+	Operator_multiply: INTEGER = 14
+	Operator_screen: INTEGER = 15
+	Operator_overlay: INTEGER = 16
+	Operator_darken: INTEGER = 17
+	Operator_lighten: INTEGER = 18
+	Operator_color_dodge: INTEGER = 19
+	Operator_color_burn: INTEGER = 20
+	Operator_hard_light: INTEGER = 21
+	Operator_soft_light: INTEGER = 22
+	Operator_difference: INTEGER = 23
+	Operator_exclusion: INTEGER = 24
+	Operator_hsl_hue: INTEGER = 25
+	Operator_hsl_saturation: INTEGER = 26
+	Operator_hsl_color: INTEGER = 27
+	Operator_hsl_luminosity: INTEGER = 28
+
 feature -- Disposal
 
 	destroy
@@ -1002,6 +1106,36 @@ feature {NONE} -- C Externals
 	c_clear_dash (a_cr: POINTER)
 		external "C inline use %"simple_cairo.h%""
 		alias "sc_clear_dash((cairo_t*)$a_cr);"
+		end
+
+	c_arc_negative (a_cr: POINTER; a_xc, a_yc, a_radius, a_angle1, a_angle2: REAL_64)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_arc_negative((cairo_t*)$a_cr, $a_xc, $a_yc, $a_radius, $a_angle1, $a_angle2);"
+		end
+
+	c_set_operator (a_cr: POINTER; a_op: INTEGER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_set_operator((cairo_t*)$a_cr, $a_op);"
+		end
+
+	c_get_operator (a_cr: POINTER): INTEGER
+		external "C inline use %"simple_cairo.h%""
+		alias "return sc_get_operator((cairo_t*)$a_cr);"
+		end
+
+	c_set_source_surface (a_cr, a_surface: POINTER; a_x, a_y: REAL_64)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_set_source_surface((cairo_t*)$a_cr, (cairo_surface_t*)$a_surface, $a_x, $a_y);"
+		end
+
+	c_mask (a_cr, a_pattern: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_mask((cairo_t*)$a_cr, (cairo_pattern_t*)$a_pattern);"
+		end
+
+	c_mask_surface (a_cr, a_surface: POINTER; a_x, a_y: REAL_64)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_mask_surface((cairo_t*)$a_cr, (cairo_surface_t*)$a_surface, $a_x, $a_y);"
 		end
 
 invariant

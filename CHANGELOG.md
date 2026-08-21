@@ -2,6 +2,20 @@
 
 All notable changes to simple_cairo will be documented in this file.
 
+## [1.2.0] - 2026-08-21
+
+### Added (Phase B - S10: compositing and patterns)
+- CAIRO_PATTERN deferred base: extend/filter get+set, status, disposal
+- CAIRO_GRADIENT re-parented onto CAIRO_PATTERN (public API unchanged)
+- CAIRO_SOLID_PATTERN, CAIRO_SURFACE_PATTERN (tiling via Extend_repeat)
+- CAIRO_MESH_PATTERN with contracted patch discipline (in_patch ghost)
+- CAIRO_CONTEXT: set_operator/drawing_operator + all 29 operator
+  constants, set_source_surface, mask, mask_surface, set_pattern
+- arc_negative exposed (shim existed unwired since 1.0.0)
+- Facade factories: solid_pattern[_rgba], surface_pattern, mesh_pattern
+- 12 new tests: pixel-exact operator/mask/tiling/pad checks, mesh corner
+  sampling, two contract-violation tests
+
 ## [1.1.0] - 2026-08-21
 
 ### Added (Layer 0 - S09, driven by simple_narrate)

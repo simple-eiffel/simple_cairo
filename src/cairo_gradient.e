@@ -24,6 +24,9 @@ note
 class
 	CAIRO_GRADIENT
 
+inherit
+	CAIRO_PATTERN
+
 create
 	make_linear, make_radial
 
@@ -52,9 +55,6 @@ feature {NONE} -- Initialization
 
 feature -- Access
 
-	handle: POINTER
-			-- Underlying cairo_pattern_t pointer.
-
 	is_linear: BOOLEAN
 			-- Is this a linear gradient?
 
@@ -62,14 +62,6 @@ feature -- Access
 			-- Is this a radial gradient?
 		do
 			Result := not is_linear
-		end
-
-feature -- Status
-
-	is_valid: BOOLEAN
-			-- Is gradient valid?
-		do
-			Result := handle /= default_pointer
 		end
 
 feature -- Color Stops (Fluent API)
@@ -134,19 +126,6 @@ feature -- Convenience
 			Result := Current
 		end
 
-feature -- Disposal
-
-	destroy
-			-- Release gradient resources.
-		do
-			if handle /= default_pointer then
-				c_pattern_destroy (handle)
-				handle := default_pointer
-			end
-		ensure
-			destroyed: handle = default_pointer
-		end
-
 feature {NONE} -- C Externals
 
 	c_gradient_linear (a_x0, a_y0, a_x1, a_y1: REAL_64): POINTER
@@ -174,9 +153,5 @@ feature {NONE} -- C Externals
 		alias "sc_gradient_add_stop_hex((cairo_pattern_t*)$a_pattern, $a_offset, (unsigned int)$a_hex);"
 		end
 
-	c_pattern_destroy (a_pattern: POINTER)
-		external "C inline use %"simple_cairo.h%""
-		alias "sc_pattern_destroy((cairo_pattern_t*)$a_pattern);"
-		end
 
 end
