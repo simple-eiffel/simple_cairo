@@ -154,3 +154,23 @@ The binding capability was S09's `x_advance`; nothing in the reference needed
 Phases C–E. Which sharpens what C–E are *for*: not this picture, but live
 windows (Win32/HDC), documents (SVG/PS/recording), geometry, and glyph-level
 text.
+
+### 7.1 Milestone M2 — the interactive editor, pure Win32  ★ *reached and ACCEPTED 2026-08-21*
+
+Larry's gate: *"If we can prove that with an interactive GUI demo that I can
+operate as a user, then we can open the gate to simple_narrate's GUI."* And his
+directive on the route: *"Phase C's Win32/HDC surface as the 'no Vision2 at
+all' pure route."*
+
+Delivered the same day: `spike_gui/` — an inline-C Win32 window (no Vision2
+anywhere) running the SV_BLOCK_EDITOR interaction model live: click-to-caret,
+typing with re-wrap, arrows with column memory, per-character split tints,
+Enter-split, Esc-reset, private faces. Blit = Phase C-1's `make_for_dc`.
+
+Telemetry from Larry's own session: **1,819 frames, avg 6.3 ms; worst edit
+frame 8.8 ms** — half a 60 Hz budget, from a deliberately naive renderer (no
+glyph cache, no partial redraw). Accepted by Larry in as many words
+("yeah man ... THAT does it!!!"). **The gate to simple_narrate's GUI is open**,
+and the pure route is the presumptive architecture for the 2026 toolkit — its
+research cycle should treat scrollbars, focus/IME, and accessibility as the
+hard problems, not rendering or latency.
