@@ -31,3 +31,19 @@ First frame committed beside this log; frame cost is measured live
 The FEEL: click accuracy, typing latency, wrap stability while editing,
 whether the split preview reads instantly. That verification is Larry's,
 by design - it is the M2 acceptance.
+
+## Session telemetry (2026-08-21, Larry at the controls)
+
+    19 edit frames (full relayout+render+blit): 6.7 - 8.8 ms
+    Session: 1819 frames, avg 6.3 ms
+
+Worst case is half a 60 Hz frame budget (16.7 ms) - from a deliberately
+naive renderer: per-character select_font and show_text, no glyph cache,
+no partial redraw, full-window repaint every frame. The headroom is the
+finding.
+
+## Verdict
+
+M2 ACCEPTED - Larry, 2026-08-21: "yeah man ... THAT does it!!!"
+
+Per the gate he set, this opens simple_narrate's GUI.
