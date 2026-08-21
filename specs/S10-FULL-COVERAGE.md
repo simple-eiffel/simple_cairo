@@ -79,6 +79,7 @@ RECORDING_SURFACE  OBSERVER_SURFACE  USER_FONT  INTERPRETER
 | User fonts, surface observers | C-callback surfaces — trampolines into Eiffel objects; revisit when a consumer exists |
 | MIME data attachment | destroy-notify callback lifetime; revisit with a PDF-embedding consumer |
 | cairo-script **interpreter** | separate library, not in `cairo.dll` (script *surface* output IS in scope, Phase C) |
+| Linux/macOS platforms | **decided out of scope** (Larry, 2026-08-21): Windows-only for the present. The one comparison row conceded to tioui/Eiffel_Cairo, by choice. |
 
 ## 5. Version arc and definition of done
 
