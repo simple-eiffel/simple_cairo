@@ -35,4 +35,9 @@
 		<library name="testing" location="$ISE_LIBRARY\library\testing\testing.ecf"/>
 		<cluster name="tests" location=".\testing\" recursive="true"/>
 	</target>
+	<target name="simple_cairo_demo" extends="simple_cairo">
+		<root class="DEMO_APP" feature="make"/>
+		<setting name="console_application" value="true"/>
+		<cluster name="demo" location=".\demo\" recursive="true"/>
+	</target>
 </system>

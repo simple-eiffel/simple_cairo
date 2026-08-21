@@ -15,6 +15,9 @@ All notable changes to simple_cairo will be documented in this file.
 - Facade factories: solid_pattern[_rgba], surface_pattern, mesh_pattern
 - 12 new tests: pixel-exact operator/mask/tiling/pad checks, mesh corner
   sampling, two contract-violation tests
+- demo target simple_cairo_demo: DEMO_APP draws the simple_narrate
+  reference editor window headless to PNG (private faces via FR_PRIVATE
+  or --system-fonts fallback) - Milestone M1, evidence in demo/RUN_LOG.md
 
 ## [1.1.0] - 2026-08-21
 

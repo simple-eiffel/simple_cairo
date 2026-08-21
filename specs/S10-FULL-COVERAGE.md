@@ -110,3 +110,47 @@ ecosystem's own work this week:
 
 These go into the toolkit's own spec as requirements, not aspirations. This
 file only refuses to let them be forgotten.
+
+### 6.1 Toolkit architecture — Larry's three questions, parked answers
+
+*(2026-08-21: tunable control fleet? control families? controls that control
+controls?)* The answer the toolkit spec starts from is **all three, layered**:
+
+1. **A small primitive fleet, heavily tunable** (~10 primitives: pressable,
+   text run, text input, canvas, scroller, virtual list, split, image).
+   Tuning = tokens globally + fluent contract-guarded setters per instance.
+   Proof it suffices: the reference render's chips, toolbar buttons, and
+   Publish blocker are one pressable wearing different tokens.
+2. **Families as thin specializations, never re-implementations** — a spin box
+   IS a text input + two pressables + a numeric-validation contract. Families
+   exist to give callers vocabulary (the ecosystem's semantic-frame rules,
+   applied to widgets).
+3. **Composites are first-class, with one law: controls never wire to each
+   other — they meet in a MODEL, and the model's invariants coordinate them.**
+   A drawing toolbar does not set the canvas's pen; both bind to a
+   DRAWING_MODEL where pen width is one contracted fact. This is
+   approval_is_definitional generalized into the toolkit's architecture.
+
+Innovation sourcing: the toolkit spec's research phase includes a deliberate
+web sweep (declarative/reactive models a la SwiftUI/Compose, fine-grained
+signals, GPU-first renderers, accessibility trees, live theming) — sussed
+*against* the §6 DbC list, not adopted as fashion.
+
+---
+
+## 7. Milestone M1 — the reference render, drawn by Eiffel  ★ *reached 2026-08-21*
+
+Acceptance target (Larry): *"let me know when simple_cairo is capable of making
+the PIL->PNG-ish GUI that was drawn for simple_narrate."*
+
+**Reached the same day, after S09 + Phase B.** `demo/demo_app.e`
+(target `simple_cairo_demo`) draws the full simple_narrate editor window —
+toolbar, map rail, four block cards with split-preview tints and caret, detail
+panel, status strip — headless to `demo_editor_window.png` at 2960×1720, in the
+real Archivo/Literata/Plex faces via a demo-local `FR_PRIVATE` load. Two run
+configurations, outputs recorded verbatim in `demo/RUN_LOG.md`, PNGs committed.
+
+The binding capability was S09's `x_advance`; nothing in the reference needed
+Phases C–E. Which sharpens what C–E are *for*: not this picture, but live
+windows (Win32/HDC), documents (SVG/PS/recording), geometry, and glyph-level
+text.
