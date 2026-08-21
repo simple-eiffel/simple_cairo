@@ -174,6 +174,26 @@ feature -- Pattern Creation
 			result_exists: Result /= Void
 		end
 
+feature -- Library
+
+	cairo_version: STRING_32
+			-- Version of the linked cairo library (e.g. 1.17.2).
+		local
+			c: C_STRING
+		do
+			create c.make_by_pointer (c_version_string)
+			Result := c.string.to_string_32
+		ensure
+			not_empty: not Result.is_empty
+		end
+
+feature {NONE} -- Library externals
+
+	c_version_string: POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return (void*)sc_version_string();"
+		end
+
 feature -- Format Constants
 
 	Format_argb32: INTEGER = 0

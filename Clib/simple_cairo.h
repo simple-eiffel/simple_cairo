@@ -770,4 +770,129 @@ static cairo_surface_t* sc_win32_surface_create(void* hdc) {
 }
 #endif
 
+/* ============ GET-AHEAD SPRINT (S10 C2/D1) ============ */
+#include "cairo-svg.h"
+
+/* Matrices: in/out as double[6] = xx yx xy yy x0 y0 */
+static void sc_mx_pack(cairo_matrix_t* m, const double* a) {
+    m->xx = a[0]; m->yx = a[1]; m->xy = a[2];
+    m->yy = a[3]; m->x0 = a[4]; m->y0 = a[5];
+}
+static void sc_mx_unpack(const cairo_matrix_t* m, double* a) {
+    a[0] = m->xx; a[1] = m->yx; a[2] = m->xy;
+    a[3] = m->yy; a[4] = m->x0; a[5] = m->y0;
+}
+static void sc_matrix_init_identity(double* a) {
+    cairo_matrix_t m;
+    cairo_matrix_init_identity(&m);
+    sc_mx_unpack(&m, a);
+}
+static void sc_matrix_translate(double* a, double tx, double ty) {
+    cairo_matrix_t m;
+    sc_mx_pack(&m, a);
+    cairo_matrix_translate(&m, tx, ty);
+    sc_mx_unpack(&m, a);
+}
+static void sc_matrix_scale(double* a, double sx, double sy) {
+    cairo_matrix_t m;
+    sc_mx_pack(&m, a);
+    cairo_matrix_scale(&m, sx, sy);
+    sc_mx_unpack(&m, a);
+}
+static void sc_matrix_rotate(double* a, double r) {
+    cairo_matrix_t m;
+    sc_mx_pack(&m, a);
+    cairo_matrix_rotate(&m, r);
+    sc_mx_unpack(&m, a);
+}
+static int sc_matrix_invert(double* a) {
+    cairo_matrix_t m;
+    cairo_status_t s;
+    sc_mx_pack(&m, a);
+    s = cairo_matrix_invert(&m);
+    if (s == CAIRO_STATUS_SUCCESS) sc_mx_unpack(&m, a);
+    return (int)s;
+}
+static void sc_matrix_multiply(double* out, const double* a, const double* b) {
+    cairo_matrix_t r, ma, mb;
+    sc_mx_pack(&ma, a);
+    sc_mx_pack(&mb, b);
+    cairo_matrix_multiply(&r, &ma, &mb);
+    sc_mx_unpack(&r, out);
+}
+static void sc_matrix_transform_point(const double* a, double* xy) {
+    cairo_matrix_t m;
+    sc_mx_pack(&m, a);
+    cairo_matrix_transform_point(&m, &xy[0], &xy[1]);
+}
+static void sc_matrix_transform_distance(const double* a, double* xy) {
+    cairo_matrix_t m;
+    sc_mx_pack(&m, a);
+    cairo_matrix_transform_distance(&m, &xy[0], &xy[1]);
+}
+
+/* Context matrix + coordinate mapping */
+static void sc_get_matrix(cairo_t* cr, double* a) {
+    cairo_matrix_t m;
+    if (!cr) return;
+    cairo_get_matrix(cr, &m);
+    sc_mx_unpack(&m, a);
+}
+static void sc_set_matrix(cairo_t* cr, const double* a) {
+    cairo_matrix_t m;
+    if (!cr) return;
+    sc_mx_pack(&m, a);
+    cairo_set_matrix(cr, &m);
+}
+static void sc_transform(cairo_t* cr, const double* a) {
+    cairo_matrix_t m;
+    if (!cr) return;
+    sc_mx_pack(&m, a);
+    cairo_transform(cr, &m);
+}
+static void sc_user_to_device(cairo_t* cr, double* xy) {
+    if (cr) cairo_user_to_device(cr, &xy[0], &xy[1]);
+}
+static void sc_device_to_user(cairo_t* cr, double* xy) {
+    if (cr) cairo_device_to_user(cr, &xy[0], &xy[1]);
+}
+
+/* Surfaces: PNG read, similar, finish, device offset/scale, device */
+static cairo_surface_t* sc_surface_from_png(const char* path) {
+    return path ? cairo_image_surface_create_from_png(path) : (cairo_surface_t*)0;
+}
+static cairo_surface_t* sc_surface_similar(cairo_surface_t* other, int content, int w, int h) {
+    return other ? cairo_surface_create_similar(other, (cairo_content_t)content, w, h) : (cairo_surface_t*)0;
+}
+static void sc_surface_finish(cairo_surface_t* s) { if (s) cairo_surface_finish(s); }
+static void sc_surface_set_device_offset(cairo_surface_t* s, double x, double y) {
+    if (s) cairo_surface_set_device_offset(s, x, y);
+}
+static void sc_surface_get_device_offset(cairo_surface_t* s, double* xy) {
+    if (s) cairo_surface_get_device_offset(s, &xy[0], &xy[1]);
+}
+static void sc_surface_set_device_scale(cairo_surface_t* s, double x, double y) {
+    if (s) cairo_surface_set_device_scale(s, x, y);
+}
+static void sc_surface_get_device_scale(cairo_surface_t* s, double* xy) {
+    if (s) cairo_surface_get_device_scale(s, &xy[0], &xy[1]);
+}
+static cairo_device_t* sc_surface_device(cairo_surface_t* s) {
+    return s ? cairo_surface_get_device(s) : (cairo_device_t*)0;
+}
+
+/* SVG surface */
+static cairo_surface_t* sc_svg_surface_create(const char* path, double w_pt, double h_pt) {
+    return path ? cairo_svg_surface_create(path, w_pt, h_pt) : (cairo_surface_t*)0;
+}
+
+/* Device (minimal, non-owning) */
+static int sc_device_status(cairo_device_t* d) { return d ? (int)cairo_device_status(d) : -1; }
+static void sc_device_flush(cairo_device_t* d)  { if (d) cairo_device_flush(d); }
+static void sc_device_finish(cairo_device_t* d) { if (d) cairo_device_finish(d); }
+
+/* Diagnostics */
+static const char* sc_status_string(int s) { return cairo_status_to_string((cairo_status_t)s); }
+static const char* sc_version_string(void) { return cairo_version_string(); }
+
 #endif /* SIMPLE_CAIRO_H */

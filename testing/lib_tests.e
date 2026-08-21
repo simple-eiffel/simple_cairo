@@ -1551,4 +1551,181 @@ feature {NONE} -- Phase C-1: Screen DC externals (test-local)
 		alias "ReleaseDC((HWND)0, (HDC)$a_dc);"
 		end
 
+feature -- Get-Ahead Sprint Tests (S10 C2/D1)
+
+	test_matrix_identity_and_translate
+		note
+			testing: "covers/{CAIRO_MATRIX}.translated"
+		local
+			m: CAIRO_MATRIX
+			pt: TUPLE [x, y: REAL_64]
+		do
+			create m.make_identity
+			m.translated (10.0, 5.0).do_nothing
+			pt := m.transformed_point (1.0, 2.0)
+			assert ("x translated", (pt.x - 11.0).abs < 0.000001)
+			assert ("y translated", (pt.y - 7.0).abs < 0.000001)
+		end
+
+	test_matrix_rotate_quarter
+		note
+			testing: "covers/{CAIRO_MATRIX}.rotated"
+		local
+			m: CAIRO_MATRIX
+			pt: TUPLE [x, y: REAL_64]
+		do
+			create m.make_identity
+			m.rotated (1.5707963267948966).do_nothing
+			pt := m.transformed_point (1.0, 0.0)
+			assert ("quarter turn x", pt.x.abs < 0.000001)
+			assert ("quarter turn y", (pt.y - 1.0).abs < 0.000001)
+		end
+
+	test_matrix_invert_roundtrip
+		note
+			testing: "covers/{CAIRO_MATRIX}.inverted"
+		local
+			m: CAIRO_MATRIX
+			pt: TUPLE [x, y: REAL_64]
+		do
+			create m.make_identity
+			m.translated (3.0, 4.0).scaled (2.0, 2.0).do_nothing
+			assert ("invertible", m.inverted)
+			pt := m.transformed_point (11.0, 14.0)
+			assert ("back to x", (pt.x - 4.0).abs < 0.000001)
+			assert ("back to y", (pt.y - 5.0).abs < 0.000001)
+		end
+
+	test_matrix_singular_refuses
+		note
+			testing: "covers/{CAIRO_MATRIX}.inverted"
+		local
+			m: CAIRO_MATRIX
+		do
+			create m.make_identity
+			m.scaled (0.0, 1.0).do_nothing
+			assert ("singular not inverted", not m.inverted)
+		end
+
+	test_context_matrix_roundtrip
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_matrix"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			m: CAIRO_MATRIX
+			pt: TUPLE [x, y: REAL_64]
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			create m.make_identity
+			m.translated (7.0, 3.0).do_nothing
+			ctx.set_matrix (m).do_nothing
+			pt := ctx.user_to_device (0.0, 0.0)
+			assert ("mapped x", (pt.x - 7.0).abs < 0.000001)
+			assert ("mapped y", (pt.y - 3.0).abs < 0.000001)
+			pt := ctx.device_to_user (7.0, 3.0)
+			assert ("unmapped x", pt.x.abs < 0.000001)
+			assert ("unmapped y", pt.y.abs < 0.000001)
+			assert ("read back x0", (ctx.matrix.x0 - 7.0).abs < 0.000001)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_png_write_read_roundtrip
+		note
+			testing: "covers/{CAIRO_SURFACE}.make_from_png"
+		local
+			a, b: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+		do
+			a := cairo.create_surface (12, 12)
+			ctx := cairo.create_context (a)
+			ctx.set_color_rgb (1.0, 0.0, 0.0).paint.do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 1.0).fill_rect (6.0, 0.0, 6.0, 12.0).do_nothing
+			ctx.destroy
+			a.flush.do_nothing
+			assert ("wrote", a.write_png ("roundtrip_probe.png"))
+			create b.make_from_png ("roundtrip_probe.png")
+			assert ("read valid", b.is_valid)
+			assert ("width kept", b.width = 12)
+			assert ("height kept", b.height = 12)
+			assert ("left pixel kept", pixel (b, 2, 6) = Red_pixel)
+			assert ("right pixel kept", pixel (b, 9, 6) = Blue_pixel)
+			b.destroy
+			a.destroy
+		end
+
+	test_similar_surface
+		note
+			testing: "covers/{CAIRO_SURFACE}.make_similar"
+		local
+			a, s: CAIRO_SURFACE
+		do
+			a := cairo.create_surface (10, 10)
+			create s.make_similar (a, a.Content_color_alpha, 20, 30)
+			assert ("similar valid", s.is_valid)
+			assert ("status ok", s.status = 0)
+			s.destroy
+			a.destroy
+		end
+
+	test_device_offset_roundtrip
+		note
+			testing: "covers/{CAIRO_SURFACE}.set_device_offset"
+		local
+			a: CAIRO_SURFACE
+			t2: TUPLE [x, y: REAL_64]
+		do
+			a := cairo.create_surface (10, 10)
+			a.set_device_offset (5.0, 9.0).do_nothing
+			t2 := a.device_offset
+			assert ("offset x", (t2.x - 5.0).abs < 0.000001)
+			assert ("offset y", (t2.y - 9.0).abs < 0.000001)
+			a.set_device_scale (2.0, 2.0).do_nothing
+			t2 := a.device_scale
+			assert ("scale x", (t2.x - 2.0).abs < 0.000001)
+			a.destroy
+		end
+
+	test_svg_surface_writes_document
+		note
+			testing: "covers/{CAIRO_SVG_SURFACE}.make_svg"
+		local
+			svg: CAIRO_SVG_SURFACE
+			ctx: CAIRO_CONTEXT
+			f: RAW_FILE
+		do
+			create svg.make_svg ("sprint_probe.svg", 144.0, 144.0)
+			assert ("svg valid", svg.is_valid)
+			create ctx.make (svg)
+			ctx.set_color_rgb (0.1, 0.4, 0.8).fill_rect (10.0, 10.0, 80.0, 50.0).do_nothing
+			ctx.destroy
+			svg.finish.do_nothing
+			svg.destroy
+			create f.make_with_name ("sprint_probe.svg")
+			assert ("svg file exists", f.exists)
+			assert ("svg has content", f.count > 200)
+		end
+
+	test_status_message_readable
+		note
+			testing: "covers/{CAIRO_SURFACE}.status_message"
+		local
+			a: CAIRO_SURFACE
+		do
+			a := cairo.create_surface (4, 4)
+			assert ("success message readable",
+				a.status_message.as_lower.has_substring ("no error"))
+			a.destroy
+		end
+
+	test_cairo_version_reported
+		note
+			testing: "covers/{SIMPLE_CAIRO}.cairo_version"
+		do
+			assert ("version not empty", not cairo.cairo_version.is_empty)
+			assert ("major.minor shape", cairo.cairo_version.has ('.'))
+		end
+
 end

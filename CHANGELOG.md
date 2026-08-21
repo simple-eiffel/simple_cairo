@@ -4,6 +4,17 @@ All notable changes to simple_cairo will be documented in this file.
 
 ## [Unreleased] - Phase C in progress
 
+### Added (C2/D1 - the get-ahead sprint)
+- CAIRO_MATRIX: identity/translate/scale/rotate/multiply/invert +
+  point/distance transforms; CAIRO_CONTEXT matrix get/set/transform and
+  user_to_device / device_to_user
+- CAIRO_SVG_SURFACE (vector .svg output) + CAIRO_SURFACE.finish
+- CAIRO_SURFACE.make_from_png (PNG READ, round-trip tested pixel-exact)
+- CAIRO_SURFACE.make_similar + Content constants; device offset/scale
+- CAIRO_DEVICE (non-owning: status/flush/finish) + CAIRO_SURFACE.device
+- status_message on surface/context; SIMPLE_CAIRO.cairo_version
+- 11 new tests (matrix algebra numeric, PNG round-trip, SVG document)
+
 ### Added (Phase C-1)
 - CAIRO_SURFACE.make_for_dc: cairo surface painting straight onto a
   Windows device context (cairo_win32_surface_create) - the live-window

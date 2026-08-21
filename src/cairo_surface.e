@@ -23,7 +23,7 @@ class
 	CAIRO_SURFACE
 
 create
-	make, make_with_format, make_from_handle, make_for_dc
+	make, make_with_format, make_from_handle, make_for_dc, make_from_png, make_similar
 
 feature {NONE} -- Initialization
 
@@ -58,6 +58,29 @@ feature {NONE} -- Initialization
 			dc_not_null: a_hdc /= default_pointer
 		do
 			handle := c_win32_surface_create (a_hdc)
+		ensure
+			owned: not is_shared
+		end
+
+	make_from_png (a_path: READABLE_STRING_GENERAL)
+			-- Load a PNG file into a new image surface.
+		require
+			path_not_empty: not a_path.is_empty
+		local
+			s: C_STRING
+		do
+			create s.make (a_path.to_string_8)
+			handle := c_surface_from_png (s.item)
+		end
+
+	make_similar (a_other: CAIRO_SURFACE; a_content, a_width, a_height: INTEGER)
+			-- Surface compatible with a_other. Content: Content_color,
+			-- Content_alpha or Content_color_alpha.
+		require
+			other_valid: a_other.is_valid
+			positive: a_width > 0 and a_height > 0
+		do
+			handle := c_surface_similar (a_other.handle, a_content, a_width, a_height)
 		ensure
 			owned: not is_shared
 		end
@@ -121,7 +144,92 @@ feature -- Access
 			Result := c_surface_data (handle)
 		end
 
+feature -- Content Constants
+
+	Content_color: INTEGER = 0x1000
+	Content_alpha: INTEGER = 0x2000
+	Content_color_alpha: INTEGER = 0x3000
+
+feature -- Device
+
+	device: detachable CAIRO_DEVICE
+			-- Backing device, when the surface type has one (image surfaces
+			-- return Void). Non-owning view.
+		require
+			valid: is_valid
+		local
+			h: POINTER
+		do
+			h := c_surface_device (handle)
+			if h /= default_pointer then
+				create Result.make_shared (h)
+			end
+		end
+
+feature -- Geometry
+
+	set_device_offset (a_x, a_y: REAL_64): like Current
+		require
+			valid: is_valid
+		do
+			c_surface_set_device_offset (handle, a_x, a_y)
+			Result := Current
+		end
+
+	device_offset: TUPLE [x, y: REAL_64]
+		require
+			valid: is_valid
+		local
+			b: MANAGED_POINTER
+		do
+			create b.make (16)
+			c_surface_get_device_offset (handle, b.item)
+			Result := [b.read_real_64 (0), b.read_real_64 (8)]
+		end
+
+	set_device_scale (a_x, a_y: REAL_64): like Current
+		require
+			valid: is_valid
+			positive: a_x > 0.0 and a_y > 0.0
+		do
+			c_surface_set_device_scale (handle, a_x, a_y)
+			Result := Current
+		end
+
+	device_scale: TUPLE [x, y: REAL_64]
+		require
+			valid: is_valid
+		local
+			b: MANAGED_POINTER
+		do
+			create b.make (16)
+			c_surface_get_device_scale (handle, b.item)
+			Result := [b.read_real_64 (0), b.read_real_64 (8)]
+		end
+
+feature -- Diagnostics
+
+	status_message: STRING_32
+			-- Human-readable form of status (cairo_status_to_string).
+		local
+			c: C_STRING
+		do
+			create c.make_by_pointer (c_status_string (status))
+			Result := c.string.to_string_32
+		end
+
 feature -- Synchronization
+
+	finish: like Current
+			-- Finish the surface: flush the document to its file (SVG, PDF)
+			-- and drop external resources. Drawing afterwards is an error.
+		require
+			valid: is_valid
+		do
+			c_surface_finish (handle)
+			Result := Current
+		end
+
 
 	flush: like Current
 			-- Complete pending drawing. Required before reading `data'.
@@ -249,6 +357,51 @@ feature {NONE} -- C Externals
 	c_win32_surface_create (a_hdc: POINTER): POINTER
 		external "C inline use %"simple_cairo.h%""
 		alias "return sc_win32_surface_create($a_hdc);"
+		end
+
+	c_surface_from_png (a_path: POINTER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return sc_surface_from_png((const char*)$a_path);"
+		end
+
+	c_surface_similar (a_other: POINTER; a_content, a_w, a_h: INTEGER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return sc_surface_similar((cairo_surface_t*)$a_other, $a_content, $a_w, $a_h);"
+		end
+
+	c_surface_finish (a_surface: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_surface_finish((cairo_surface_t*)$a_surface);"
+		end
+
+	c_surface_set_device_offset (a_surface: POINTER; a_x, a_y: REAL_64)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_surface_set_device_offset((cairo_surface_t*)$a_surface, $a_x, $a_y);"
+		end
+
+	c_surface_get_device_offset (a_surface, a_xy: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_surface_get_device_offset((cairo_surface_t*)$a_surface, (double*)$a_xy);"
+		end
+
+	c_surface_set_device_scale (a_surface: POINTER; a_x, a_y: REAL_64)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_surface_set_device_scale((cairo_surface_t*)$a_surface, $a_x, $a_y);"
+		end
+
+	c_surface_get_device_scale (a_surface, a_xy: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_surface_get_device_scale((cairo_surface_t*)$a_surface, (double*)$a_xy);"
+		end
+
+	c_surface_device (a_surface: POINTER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return sc_surface_device((cairo_surface_t*)$a_surface);"
+		end
+
+	c_status_string (a_s: INTEGER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return (void*)sc_status_string($a_s);"
 		end
 
 invariant

@@ -106,6 +106,19 @@ feature {NONE} -- Test Execution
 
 			-- Phase C-1 (S10)
 			run_test (agent l_tests.test_win32_surface_for_screen_dc, "test_win32_surface_for_screen_dc")
+
+			-- Get-ahead sprint (S10 C2/D1)
+			run_test (agent l_tests.test_matrix_identity_and_translate, "test_matrix_identity_and_translate")
+			run_test (agent l_tests.test_matrix_rotate_quarter, "test_matrix_rotate_quarter")
+			run_test (agent l_tests.test_matrix_invert_roundtrip, "test_matrix_invert_roundtrip")
+			run_test (agent l_tests.test_matrix_singular_refuses, "test_matrix_singular_refuses")
+			run_test (agent l_tests.test_context_matrix_roundtrip, "test_context_matrix_roundtrip")
+			run_test (agent l_tests.test_png_write_read_roundtrip, "test_png_write_read_roundtrip")
+			run_test (agent l_tests.test_similar_surface, "test_similar_surface")
+			run_test (agent l_tests.test_device_offset_roundtrip, "test_device_offset_roundtrip")
+			run_test (agent l_tests.test_svg_surface_writes_document, "test_svg_surface_writes_document")
+			run_test (agent l_tests.test_status_message_readable, "test_status_message_readable")
+			run_test (agent l_tests.test_cairo_version_reported, "test_cairo_version_reported")
 		end
 
 	run_test (a_test: PROCEDURE; a_name: STRING)

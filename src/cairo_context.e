@@ -476,6 +476,73 @@ feature -- Transforms (Fluent API)
 			Result := Current
 		end
 
+feature -- Matrix (Fluent API)
+
+	matrix: CAIRO_MATRIX
+			-- Current transformation matrix.
+		require
+			valid: is_valid
+		local
+			b: MANAGED_POINTER
+		do
+			create b.make (48)
+			c_get_matrix (handle, b.item)
+			create Result.make_from_buffer (b)
+		end
+
+	set_matrix (a_m: CAIRO_MATRIX): like Current
+		require
+			valid: is_valid
+		do
+			c_set_matrix (handle, a_m.packed.item)
+			Result := Current
+		end
+
+	transform (a_m: CAIRO_MATRIX): like Current
+			-- Multiply the current matrix by a_m.
+		require
+			valid: is_valid
+		do
+			c_transform (handle, a_m.packed.item)
+			Result := Current
+		end
+
+	user_to_device (a_x, a_y: REAL_64): TUPLE [x, y: REAL_64]
+		require
+			valid: is_valid
+		local
+			b: MANAGED_POINTER
+		do
+			create b.make (16)
+			b.put_real_64 (a_x, 0)
+			b.put_real_64 (a_y, 8)
+			c_user_to_device (handle, b.item)
+			Result := [b.read_real_64 (0), b.read_real_64 (8)]
+		end
+
+	device_to_user (a_x, a_y: REAL_64): TUPLE [x, y: REAL_64]
+		require
+			valid: is_valid
+		local
+			b: MANAGED_POINTER
+		do
+			create b.make (16)
+			b.put_real_64 (a_x, 0)
+			b.put_real_64 (a_y, 8)
+			c_device_to_user (handle, b.item)
+			Result := [b.read_real_64 (0), b.read_real_64 (8)]
+		end
+
+feature -- Diagnostics
+
+	status_message: STRING_32
+		local
+			c: C_STRING
+		do
+			create c.make_by_pointer (c_status_string (status))
+			Result := c.string.to_string_32
+		end
+
 feature -- Text (Fluent API)
 
 	select_font (a_family: READABLE_STRING_GENERAL; a_slant, a_weight: INTEGER): like Current
@@ -1136,6 +1203,36 @@ feature {NONE} -- C Externals
 	c_mask_surface (a_cr, a_surface: POINTER; a_x, a_y: REAL_64)
 		external "C inline use %"simple_cairo.h%""
 		alias "sc_mask_surface((cairo_t*)$a_cr, (cairo_surface_t*)$a_surface, $a_x, $a_y);"
+		end
+
+	c_get_matrix (a_cr, a_m: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_get_matrix((cairo_t*)$a_cr, (double*)$a_m);"
+		end
+
+	c_set_matrix (a_cr, a_m: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_set_matrix((cairo_t*)$a_cr, (const double*)$a_m);"
+		end
+
+	c_transform (a_cr, a_m: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_transform((cairo_t*)$a_cr, (const double*)$a_m);"
+		end
+
+	c_user_to_device (a_cr, a_xy: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_user_to_device((cairo_t*)$a_cr, (double*)$a_xy);"
+		end
+
+	c_device_to_user (a_cr, a_xy: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_device_to_user((cairo_t*)$a_cr, (double*)$a_xy);"
+		end
+
+	c_status_string (a_s: INTEGER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return (void*)sc_status_string($a_s);"
 		end
 
 invariant
