@@ -27,3 +27,7 @@ Thumbs.db
 lib/
 *.epr
 *.log
+
+# test-suite artifacts (regenerated every run)
+/roundtrip_probe.png
+/sprint_probe.svg
