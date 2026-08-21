@@ -23,7 +23,7 @@ class
 	CAIRO_SURFACE
 
 create
-	make, make_with_format, make_from_handle
+	make, make_with_format, make_from_handle, make_for_dc
 
 feature {NONE} -- Initialization
 
@@ -48,6 +48,18 @@ feature {NONE} -- Initialization
 			handle := c_surface_create_format (a_format, a_width, a_height)
 		ensure
 			handle_set: handle /= default_pointer implies is_valid
+		end
+
+	make_for_dc (a_hdc: POINTER)
+			-- Phase C-1: surface that paints straight onto a Windows device
+			-- context. Caller owns the HDC; destroy this surface before
+			-- releasing the DC. Owned (not shared): destroy really destroys.
+		require
+			dc_not_null: a_hdc /= default_pointer
+		do
+			handle := c_win32_surface_create (a_hdc)
+		ensure
+			owned: not is_shared
 		end
 
 	make_from_handle (a_handle: POINTER)
@@ -232,6 +244,11 @@ feature {NONE} -- C Externals
 	c_surface_mark_dirty (a_surface: POINTER)
 		external "C inline use %"simple_cairo.h%""
 		alias "sc_surface_mark_dirty((cairo_surface_t*)$a_surface);"
+		end
+
+	c_win32_surface_create (a_hdc: POINTER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return sc_win32_surface_create($a_hdc);"
 		end
 
 invariant

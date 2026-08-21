@@ -40,4 +40,10 @@
 		<setting name="console_application" value="true"/>
 		<cluster name="demo" location=".\demo\" recursive="true"/>
 	</target>
+	<target name="simple_cairo_gui_spike" extends="simple_cairo">
+		<root class="GUI_SPIKE_APP" feature="make"/>
+		<setting name="console_application" value="true"/>
+		<external_include location="$(SIMPLE_EIFFEL)/simple_cairo/spike_gui"/>
+		<cluster name="spike_gui" location=".\spike_gui\" recursive="true"/>
+	</target>
 </system>

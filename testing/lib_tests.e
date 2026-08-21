@@ -1516,4 +1516,39 @@ feature {NONE} -- Phase B: Color Helpers
 			Result := (r - a_r).abs <= a_tol and (g - a_g).abs <= a_tol and (b - a_b).abs <= a_tol
 		end
 
+feature -- Phase C-1: Win32 Surface Test (S10)
+
+	test_win32_surface_for_screen_dc
+			-- A cairo surface over a real Windows DC is valid. Uses the
+			-- screen DC (GetDC null) so the test needs no window; nothing
+			-- is painted to it.
+		note
+			testing: "covers/{CAIRO_SURFACE}.make_for_dc"
+		local
+			hdc: POINTER
+			surface: CAIRO_SURFACE
+		do
+			hdc := c_get_screen_dc
+			assert ("screen dc acquired", hdc /= default_pointer)
+			create surface.make_for_dc (hdc)
+			assert ("win32 surface valid", surface.is_valid)
+			assert ("status ok", surface.status = 0)
+			assert ("owned, not shared", not surface.is_shared)
+			surface.destroy
+			assert ("destroyed", not surface.is_valid)
+			c_release_screen_dc (hdc)
+		end
+
+feature {NONE} -- Phase C-1: Screen DC externals (test-local)
+
+	c_get_screen_dc: POINTER
+		external "C inline use <windows.h>"
+		alias "return (void*)GetDC((HWND)0);"
+		end
+
+	c_release_screen_dc (a_dc: POINTER)
+		external "C inline use <windows.h>"
+		alias "ReleaseDC((HWND)0, (HDC)$a_dc);"
+		end
+
 end

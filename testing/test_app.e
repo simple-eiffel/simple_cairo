@@ -103,6 +103,9 @@ feature {NONE} -- Test Execution
 			run_test (agent l_tests.test_arc_negative_draws, "test_arc_negative_draws")
 			run_test (agent l_tests.test_operator_rejects_unknown, "test_operator_rejects_unknown")
 			run_test (agent l_tests.test_pattern_extend_rejects_unknown, "test_pattern_extend_rejects_unknown")
+
+			-- Phase C-1 (S10)
+			run_test (agent l_tests.test_win32_surface_for_screen_dc, "test_win32_surface_for_screen_dc")
 		end
 
 	run_test (a_test: PROCEDURE; a_name: STRING)

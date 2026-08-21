@@ -2,6 +2,16 @@
 
 All notable changes to simple_cairo will be documented in this file.
 
+## [Unreleased] - Phase C in progress
+
+### Added (Phase C-1)
+- CAIRO_SURFACE.make_for_dc: cairo surface painting straight onto a
+  Windows device context (cairo_win32_surface_create) - the live-window
+  route. Suite test against the screen DC.
+- spike_gui / simple_cairo_gui_spike target: pure-Win32 interactive
+  SV_BLOCK_EDITOR spike (inline-C window + message pump, no Vision2;
+  every pixel painted by simple_cairo, blitted via make_for_dc)
+
 ## [1.2.0] - 2026-08-21
 
 ### Added (Phase B - S10: compositing and patterns)

@@ -759,4 +759,15 @@ static void sc_mesh_set_control_point(cairo_pattern_t* p, unsigned int point, do
     if (p) cairo_mesh_pattern_set_control_point(p, point, x, y);
 }
 
+/* ============ PHASE C-1 (S10): WIN32 SURFACE ============ */
+#ifdef _WIN32
+#include "cairo-win32.h"
+
+/* A cairo surface that paints straight onto a Windows device context.
+   The caller owns the HDC; destroy the surface before releasing the DC. */
+static cairo_surface_t* sc_win32_surface_create(void* hdc) {
+    return hdc ? cairo_win32_surface_create((HDC)hdc) : (cairo_surface_t*)0;
+}
+#endif
+
 #endif /* SIMPLE_CAIRO_H */
