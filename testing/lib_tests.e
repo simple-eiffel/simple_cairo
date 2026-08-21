@@ -724,4 +724,497 @@ feature -- Edge Case Tests
 			assert ("rapid create/destroy succeeded", True)
 		end
 
+feature -- Layer 0: Measurement Tests (S09)
+
+	test_text_extents_basic
+			-- Non-empty text has positive width, height, and advance.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_extents"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ext: CAIRO_TEXT_EXTENTS
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_normal).set_font_size (16.0).do_nothing
+			ext := ctx.text_extents ("Measure")
+			assert ("positive width", ext.width > 0.0)
+			assert ("positive height", ext.height > 0.0)
+			assert ("positive advance", ext.x_advance > 0.0)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_text_extents_monotonic_advance
+			-- Appending a character strictly grows the advance.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_extents"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_normal).set_font_size (16.0).do_nothing
+			assert ("ab advances past a",
+				ctx.text_extents ("ab").x_advance > ctx.text_extents ("a").x_advance)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_trailing_space_advance_exceeds_width
+			-- THE width-is-not-advance proof: a trailing space adds advance
+			-- but no ink, so for "a " x_advance > width. Pinned as a test so
+			-- the distinction can never silently regress (S09 section 5).
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_extents"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ext: CAIRO_TEXT_EXTENTS
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_normal).set_font_size (16.0).do_nothing
+			ext := ctx.text_extents ("a ")
+			assert ("advance exceeds ink width", ext.x_advance > ext.width)
+			assert ("space advanced past bare a",
+				ext.x_advance > ctx.text_extents ("a").x_advance)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_text_extents_empty
+			-- Empty string measures all-zero.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_extents"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ext: CAIRO_TEXT_EXTENTS
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ext := ctx.text_extents ("")
+			assert ("zero width", ext.width = 0.0)
+			assert ("zero height", ext.height = 0.0)
+			assert ("zero x_advance", ext.x_advance = 0.0)
+			assert ("zero y_advance", ext.y_advance = 0.0)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_text_extents_deterministic
+			-- Same text, same state: identical records.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_extents"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			a, b: CAIRO_TEXT_EXTENTS
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_normal).set_font_size (14.0).do_nothing
+			a := ctx.text_extents ("determinism")
+			b := ctx.text_extents ("determinism")
+			assert ("width equal", a.width = b.width)
+			assert ("height equal", a.height = b.height)
+			assert ("x_advance equal", a.x_advance = b.x_advance)
+			assert ("x_bearing equal", a.x_bearing = b.x_bearing)
+			assert ("y_bearing equal", a.y_bearing = b.y_bearing)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_font_extents_sane
+			-- A selected font reports positive ascent and line height.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.font_extents"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			fe: CAIRO_FONT_EXTENTS
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_normal).set_font_size (16.0).do_nothing
+			fe := ctx.font_extents
+			assert ("positive ascent", fe.ascent > 0.0)
+			assert ("non-negative descent", fe.descent >= 0.0)
+			assert ("positive line height", fe.height > 0.0)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_text_width_agrees_with_extents
+			-- The legacy query and the full record cannot disagree.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_width"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_normal).set_font_size (16.0).do_nothing
+			assert ("width agrees",
+				ctx.text_width ("agree") = ctx.text_extents ("agree").width)
+			assert ("height agrees",
+				ctx.text_height ("agree") = ctx.text_extents ("agree").height)
+			ctx.destroy
+			surface.destroy
+		end
+
+feature -- Layer 0: Clip, Group, Dash, Quality Tests (S09)
+
+	test_clip_restricts_painting
+			-- Paint inside a clip lands; outside it does not.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.clip_rectangle"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+		do
+			surface := cairo.create_surface (20, 20)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			ctx.clip_rectangle (5.0, 5.0, 10.0, 10.0).do_nothing
+			ctx.set_color_rgb (1.0, 0.0, 0.0).paint.do_nothing
+			surface.flush.do_nothing
+			assert ("inside clip is red", pixel (surface, 10, 10) = Red_pixel)
+			assert ("outside clip is white", pixel (surface, 2, 2) = White_pixel)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_reset_clip_restores_full_extents
+			-- After reset_clip the clip is the whole surface again.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.reset_clip"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ext: TUPLE [x1, y1, x2, y2: REAL_64]
+		do
+			surface := cairo.create_surface (20, 20)
+			ctx := cairo.create_context (surface)
+			ctx.clip_rectangle (2.0, 2.0, 5.0, 5.0).do_nothing
+			ext := ctx.clip_extents
+			assert ("clipped narrower", ext.x2 - ext.x1 < 20.0)
+			ctx.reset_clip.do_nothing
+			ext := ctx.clip_extents
+			assert ("full width restored", ext.x2 - ext.x1 = 20.0)
+			assert ("full height restored", ext.y2 - ext.y1 = 20.0)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_group_composites_on_pop
+			-- push_group captures drawing; pop_group_to_source + paint lands it.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.push_group"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+		do
+			surface := cairo.create_surface (20, 20)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			ctx.push_group.set_color_rgb (1.0, 0.0, 0.0).paint.pop_group_to_source.paint.do_nothing
+			surface.flush.do_nothing
+			assert ("group composited red", pixel (surface, 5, 5) = Red_pixel)
+			assert ("depth balanced", ctx.group_depth = 0)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_dash_reduces_ink
+			-- A dashed line inks strictly fewer pixels; clear_dash restores solid.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_dash"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			solid, dashed: INTEGER
+		do
+			surface := cairo.create_surface (40, 10)
+			ctx := cairo.create_context (surface)
+			ctx.set_antialias (ctx.Antialias_none).set_line_width (4.0).do_nothing
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 0.0).move_to (0.0, 5.0).line_to (40.0, 5.0).stroke.do_nothing
+			surface.flush.do_nothing
+			solid := row_ink_count (surface, 5)
+			assert ("solid line inked", solid >= 30)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			ctx.set_dash (<<4.0, 4.0>>, 0.0).do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 0.0).move_to (0.0, 5.0).line_to (40.0, 5.0).stroke.do_nothing
+			surface.flush.do_nothing
+			dashed := row_ink_count (surface, 5)
+			assert ("dash reduces ink", dashed < solid)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.clear_dash.do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 0.0).move_to (0.0, 5.0).line_to (40.0, 5.0).stroke.do_nothing
+			surface.flush.do_nothing
+			assert ("clear_dash restores solid", row_ink_count (surface, 5) = solid)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_antialias_none_two_tone_edge
+			-- Antialias_none yields hard two-tone edges; smoothing yields more.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_antialias"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+		do
+			surface := cairo.create_surface (30, 30)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.set_line_width (2.0).do_nothing
+			ctx.set_antialias (ctx.Antialias_none).do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 0.0).move_to (0.0, 0.0).line_to (30.0, 30.0).stroke.do_nothing
+			surface.flush.do_nothing
+			assert ("aliased edge is two-tone", distinct_count_in_row (surface, 15) <= 2)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			ctx.set_antialias (ctx.Antialias_good).do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 0.0).move_to (0.0, 0.0).line_to (30.0, 30.0).stroke.do_nothing
+			surface.flush.do_nothing
+			assert ("antialiased edge has gradient", distinct_count_in_row (surface, 15) > 2)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_font_quality_smoke
+			-- Font antialias and hinting apply without fault and text still inks.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_font_antialias"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			y, ink: INTEGER
+		do
+			surface := cairo.create_surface (40, 24)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_bold).set_font_size (14.0).do_nothing
+			ctx.set_font_antialias (ctx.Antialias_none).set_font_hint_style (ctx.Hint_style_full).do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 0.0).move_to (2.0, 18.0).show_text ("Hi").do_nothing
+			surface.flush.do_nothing
+			from
+				y := 0
+			until
+				y >= surface.height
+			loop
+				ink := ink + row_ink_count (surface, y)
+				y := y + 1
+			end
+			assert ("text rendered ink", ink > 0)
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_flush_mark_dirty_smoke
+			-- Synchronization commands run without fault and keep validity.
+		note
+			testing: "covers/{CAIRO_SURFACE}.flush"
+		local
+			surface: CAIRO_SURFACE
+		do
+			surface := cairo.create_surface (8, 8)
+			surface.flush.mark_dirty.do_nothing
+			assert ("still valid", surface.is_valid)
+			surface.destroy
+		end
+
+feature -- Layer 0: Acceptance (S09)
+
+	test_wrap_loop
+			-- S09 acceptance: the SV_BLOCK_EDITOR wrap algorithm against the
+			-- new API. Accumulate x_advance per word, break at 200 px. When
+			-- this is green, "usable for simple_narrate" is a fact with a name.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_extents"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			words: LIST [STRING_32]
+			line_width, space_adv, word_adv, max_width: REAL_64
+			line_count: INTEGER
+		do
+			surface := cairo.create_surface (10, 10)
+			ctx := cairo.create_context (surface)
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_normal).set_font_size (16.0).do_nothing
+			space_adv := ctx.text_extents (" ").x_advance
+			assert ("space advances", space_adv > 0.0)
+			max_width := 200.0
+			words := ("the quick brown fox jumps over the lazy dog and keeps on running past the fence").to_string_32.split (' ')
+			line_count := 1
+			line_width := 0.0
+			across words as w loop
+				word_adv := ctx.text_extents (w).x_advance
+				assert ("word fits alone", word_adv <= max_width)
+				if line_width > 0.0 and then line_width + space_adv + word_adv > max_width then
+					line_count := line_count + 1
+					line_width := word_adv
+				elseif line_width > 0.0 then
+					line_width := line_width + space_adv + word_adv
+				else
+					line_width := word_adv
+				end
+				assert ("line within budget", line_width <= max_width)
+			end
+			assert ("wrapped to multiple lines", line_count > 1)
+			ctx.destroy
+			surface.destroy
+		end
+
+feature -- Layer 0: Contract Violation Tests (S09)
+
+	test_dash_rejects_all_zero
+			-- An all-zero dash pattern violates some_ink. This test doubles as
+			-- the assertions-are-live proof: compiled-out preconditions fail it.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_dash"
+		local
+			surface: detachable CAIRO_SURFACE
+			ctx: detachable CAIRO_CONTEXT
+			violated, done: BOOLEAN
+		do
+			if not done then
+				surface := cairo.create_surface (8, 8)
+				ctx := cairo.create_context (surface)
+				if attached ctx as c then
+					c.set_dash (<<0.0, 0.0>>, 0.0).do_nothing
+				end
+			end
+			assert ("all-zero dash rejected", violated)
+			if attached ctx as c then
+				c.destroy
+			end
+			if attached surface as s then
+				s.destroy
+			end
+		rescue
+			violated := True
+			done := True
+			retry
+		end
+
+	test_clip_rectangle_rejects_zero_extent
+			-- A zero-width clip rectangle violates positive_extent.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.clip_rectangle"
+		local
+			surface: detachable CAIRO_SURFACE
+			ctx: detachable CAIRO_CONTEXT
+			violated, done: BOOLEAN
+		do
+			if not done then
+				surface := cairo.create_surface (8, 8)
+				ctx := cairo.create_context (surface)
+				if attached ctx as c then
+					c.clip_rectangle (0.0, 0.0, 0.0, 5.0).do_nothing
+				end
+			end
+			assert ("zero extent rejected", violated)
+			if attached ctx as c then
+				c.destroy
+			end
+			if attached surface as s then
+				s.destroy
+			end
+		rescue
+			violated := True
+			done := True
+			retry
+		end
+
+	test_pop_group_requires_push
+			-- pop_group_to_source with no open group violates group_open.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.pop_group_to_source"
+		local
+			surface: detachable CAIRO_SURFACE
+			ctx: detachable CAIRO_CONTEXT
+			violated, done: BOOLEAN
+		do
+			if not done then
+				surface := cairo.create_surface (8, 8)
+				ctx := cairo.create_context (surface)
+				if attached ctx as c then
+					c.pop_group_to_source.do_nothing
+				end
+			end
+			assert ("unbalanced pop rejected", violated)
+			if attached ctx as c then
+				c.destroy
+			end
+			if attached surface as s then
+				s.destroy
+			end
+		rescue
+			violated := True
+			done := True
+			retry
+		end
+
+feature {NONE} -- Layer 0: Pixel Helpers
+
+	White_pixel: NATURAL_32 = 0xFFFFFFFF
+	Red_pixel: NATURAL_32 = 0xFFFF0000
+
+	pixel (a_surface: CAIRO_SURFACE; a_x, a_y: INTEGER): NATURAL_32
+			-- ARGB32 pixel at (a_x, a_y), read as 0xAARRGGBB (little-endian).
+		require
+			valid: a_surface.is_valid
+			in_range: a_x >= 0 and a_y >= 0 and a_x < a_surface.width and a_y < a_surface.height
+		local
+			mp: MANAGED_POINTER
+		do
+			create mp.share_from_pointer (a_surface.data, a_surface.stride * a_surface.height)
+			Result := mp.read_natural_32 (a_y * a_surface.stride + a_x * 4)
+		end
+
+	row_ink_count (a_surface: CAIRO_SURFACE; a_y: INTEGER): INTEGER
+			-- Number of non-white pixels in row a_y.
+		local
+			x: INTEGER
+		do
+			from
+				x := 0
+			until
+				x >= a_surface.width
+			loop
+				if pixel (a_surface, x, a_y) /= White_pixel then
+					Result := Result + 1
+				end
+				x := x + 1
+			end
+		end
+
+	distinct_count_in_row (a_surface: CAIRO_SURFACE; a_y: INTEGER): INTEGER
+			-- Number of distinct pixel values in row a_y.
+			-- ARRAYED_LIST.has compares identity; NATURAL_32 is expanded,
+			-- so identity IS value here (oracle gotcha checked).
+		local
+			x: INTEGER
+			seen: ARRAYED_LIST [NATURAL_32]
+			p: NATURAL_32
+		do
+			create seen.make (8)
+			from
+				x := 0
+			until
+				x >= a_surface.width
+			loop
+				p := pixel (a_surface, x, a_y)
+				if not seen.has (p) then
+					seen.extend (p)
+				end
+				x := x + 1
+			end
+			Result := seen.count
+		end
+
 end

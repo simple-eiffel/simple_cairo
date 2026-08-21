@@ -101,10 +101,32 @@ feature -- Access
 
 	data: POINTER
 			-- Raw pixel data pointer.
+			-- Call `flush' before reading through this pointer and
+			-- `mark_dirty' after writing through it - cairo requires both.
 		require
 			valid: is_valid
 		do
 			Result := c_surface_data (handle)
+		end
+
+feature -- Synchronization
+
+	flush: like Current
+			-- Complete pending drawing. Required before reading `data'.
+		require
+			valid: is_valid
+		do
+			c_surface_flush (handle)
+			Result := Current
+		end
+
+	mark_dirty: like Current
+			-- Declare external writes through `data'. Required after them.
+		require
+			valid: is_valid
+		do
+			c_surface_mark_dirty (handle)
+			Result := Current
 		end
 
 feature -- Status
@@ -200,6 +222,16 @@ feature {NONE} -- C Externals
 	c_surface_status (a_surface: POINTER): INTEGER
 		external "C inline use %"simple_cairo.h%""
 		alias "return sc_surface_status((cairo_surface_t*)$a_surface);"
+		end
+
+	c_surface_flush (a_surface: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_surface_flush((cairo_surface_t*)$a_surface);"
+		end
+
+	c_surface_mark_dirty (a_surface: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_surface_mark_dirty((cairo_surface_t*)$a_surface);"
 		end
 
 invariant

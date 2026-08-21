@@ -443,25 +443,49 @@ feature -- Text (Fluent API)
 		end
 
 	text_width (a_text: READABLE_STRING_GENERAL): REAL_64
-			-- Get width of text.
+			-- Ink width of text. NOT the layout number - see `text_extents.x_advance'.
 		require
 			valid: is_valid
-		local
-			l_text: C_STRING
 		do
-			create l_text.make (to_utf8 (a_text))
-			Result := c_text_width (handle, l_text.item)
+			Result := text_extents (a_text).width
 		end
 
 	text_height (a_text: READABLE_STRING_GENERAL): REAL_64
-			-- Get height of text.
+			-- Ink height of text.
+		require
+			valid: is_valid
+		do
+			Result := text_extents (a_text).height
+		end
+
+	text_extents (a_text: READABLE_STRING_GENERAL): CAIRO_TEXT_EXTENTS
+			-- Full extents of `a_text' in the current font.
+			-- For layout, accumulate `Result.x_advance', never `Result.width':
+			-- width is ink coverage and excludes trailing whitespace.
 		require
 			valid: is_valid
 		local
 			l_text: C_STRING
+			l_buf: MANAGED_POINTER
 		do
 			create l_text.make (to_utf8 (a_text))
-			Result := c_text_height (handle, l_text.item)
+			create l_buf.make (48)
+			c_text_extents (handle, l_text.item, l_buf.item)
+			create Result.make_from_buffer (l_buf)
+		end
+
+	font_extents: CAIRO_FONT_EXTENTS
+			-- Metrics of the current font at the current size.
+			-- `Result.ascent' places the first baseline; `Result.height' is
+			-- the line-to-line distance; ascent + descent sizes a caret.
+		require
+			valid: is_valid
+		local
+			l_buf: MANAGED_POINTER
+		do
+			create l_buf.make (40)
+			c_font_extents (handle, l_buf.item)
+			create Result.make_from_buffer (l_buf)
 		end
 
 feature -- Waveform Drawing
@@ -475,6 +499,158 @@ feature -- Waveform Drawing
 			positive_count: a_count > 0
 		do
 			c_draw_waveform_i16 (handle, a_samples, a_count, a_x, a_y, a_width, a_height)
+			Result := Current
+		end
+
+feature -- Quality (Fluent API)
+
+	set_antialias (a_mode: INTEGER): like Current
+			-- Set antialiasing for shapes and text.
+		require
+			valid: is_valid
+			known_mode: a_mode >= Antialias_default and a_mode <= Antialias_best
+		do
+			c_set_antialias (handle, a_mode)
+			Result := Current
+		end
+
+	set_font_antialias (a_mode: INTEGER): like Current
+			-- Set antialiasing for text rendering only.
+		require
+			valid: is_valid
+			known_mode: a_mode >= Antialias_default and a_mode <= Antialias_best
+		do
+			c_set_font_antialias (handle, a_mode)
+			Result := Current
+		end
+
+	set_font_hint_style (a_style: INTEGER): like Current
+			-- Set glyph grid-fitting style.
+		require
+			valid: is_valid
+			known_style: a_style >= Hint_style_default and a_style <= Hint_style_full
+		do
+			c_set_font_hint_style (handle, a_style)
+			Result := Current
+		end
+
+feature -- Clipping (Fluent API)
+
+	clip: like Current
+			-- Current path becomes the clip region; the path is consumed.
+		require
+			valid: is_valid
+		do
+			c_clip (handle)
+			Result := Current
+		end
+
+	clip_preserve: like Current
+			-- Current path becomes the clip region; the path is kept.
+		require
+			valid: is_valid
+		do
+			c_clip_preserve (handle)
+			Result := Current
+		end
+
+	reset_clip: like Current
+			-- Remove all clipping.
+		require
+			valid: is_valid
+		do
+			c_reset_clip (handle)
+			Result := Current
+		end
+
+	clip_rectangle (a_x, a_y, a_w, a_h: REAL_64): like Current
+			-- Clip to the given rectangle.
+		require
+			valid: is_valid
+			positive_extent: a_w > 0.0 and a_h > 0.0
+		do
+			Result := rectangle (a_x, a_y, a_w, a_h).clip
+		end
+
+	clip_extents: TUPLE [x1, y1, x2, y2: REAL_64]
+			-- Bounding box of the current clip, in user space.
+		require
+			valid: is_valid
+		local
+			l_buf: MANAGED_POINTER
+		do
+			create l_buf.make (32)
+			c_clip_extents (handle, l_buf.item)
+			Result := [l_buf.read_real_64 (0), l_buf.read_real_64 (8),
+			           l_buf.read_real_64 (16), l_buf.read_real_64 (24)]
+		ensure
+			ordered: Result.x2 >= Result.x1 and Result.y2 >= Result.y1
+		end
+
+feature -- Group Compositing (Fluent API)
+
+	group_depth: INTEGER
+			-- Number of open groups (pushes without a matching pop).
+
+	push_group: like Current
+			-- Redirect drawing to an intermediate surface.
+		require
+			valid: is_valid
+		do
+			c_push_group (handle)
+			group_depth := group_depth + 1
+			Result := Current
+		ensure
+			deeper: group_depth = old group_depth + 1
+		end
+
+	pop_group_to_source: like Current
+			-- End the group; the intermediate becomes the source pattern.
+			-- Follow with `paint' to composite:
+			--   ctx.push_group ... pop_group_to_source.paint
+		require
+			valid: is_valid
+			group_open: group_depth > 0
+		do
+			c_pop_group_to_source (handle)
+			group_depth := group_depth - 1
+			Result := Current
+		ensure
+			shallower: group_depth = old group_depth - 1
+		end
+
+feature -- Dash (Fluent API)
+
+	set_dash (a_dashes: ARRAY [REAL_64]; a_offset: REAL_64): like Current
+			-- Set the dash pattern for stroking.
+		require
+			valid: is_valid
+			has_segments: not a_dashes.is_empty
+			all_non_negative: across a_dashes as d all d >= 0.0 end
+			some_ink: across a_dashes as d some d > 0.0 end
+		local
+			l_buf: MANAGED_POINTER
+			i: INTEGER
+		do
+			create l_buf.make (a_dashes.count * 8)
+			from
+				i := a_dashes.lower
+			until
+				i > a_dashes.upper
+			loop
+				l_buf.put_real_64 (a_dashes [i], (i - a_dashes.lower) * 8)
+				i := i + 1
+			end
+			c_set_dash (handle, l_buf.item, a_dashes.count, a_offset)
+			Result := Current
+		end
+
+	clear_dash: like Current
+			-- Back to solid lines.
+		require
+			valid: is_valid
+		do
+			c_clear_dash (handle)
 			Result := Current
 		end
 
@@ -496,6 +672,24 @@ feature -- Font Constants
 
 	Weight_normal: INTEGER = 0
 	Weight_bold: INTEGER = 1
+
+feature -- Antialias Constants
+
+	Antialias_default: INTEGER = 0
+	Antialias_none: INTEGER = 1
+	Antialias_gray: INTEGER = 2
+	Antialias_subpixel: INTEGER = 3
+	Antialias_fast: INTEGER = 4
+	Antialias_good: INTEGER = 5
+	Antialias_best: INTEGER = 6
+
+feature -- Hint Style Constants
+
+	Hint_style_default: INTEGER = 0
+	Hint_style_none: INTEGER = 1
+	Hint_style_slight: INTEGER = 2
+	Hint_style_medium: INTEGER = 3
+	Hint_style_full: INTEGER = 4
 
 feature -- Disposal
 
@@ -745,7 +939,73 @@ feature {NONE} -- C Externals
 		alias "sc_draw_waveform_i16((cairo_t*)$a_cr, (const short*)$a_samples, $a_count, $a_x, $a_y, $a_w, $a_h);"
 		end
 
+	c_text_extents (a_cr, a_text, a_out: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_text_extents((cairo_t*)$a_cr, (const char*)$a_text, (double*)$a_out);"
+		end
+
+	c_font_extents (a_cr, a_out: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_font_extents((cairo_t*)$a_cr, (double*)$a_out);"
+		end
+
+	c_set_antialias (a_cr: POINTER; a_mode: INTEGER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_set_antialias((cairo_t*)$a_cr, $a_mode);"
+		end
+
+	c_set_font_antialias (a_cr: POINTER; a_mode: INTEGER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_set_font_antialias((cairo_t*)$a_cr, $a_mode);"
+		end
+
+	c_set_font_hint_style (a_cr: POINTER; a_style: INTEGER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_set_font_hint_style((cairo_t*)$a_cr, $a_style);"
+		end
+
+	c_clip (a_cr: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_clip((cairo_t*)$a_cr);"
+		end
+
+	c_clip_preserve (a_cr: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_clip_preserve((cairo_t*)$a_cr);"
+		end
+
+	c_reset_clip (a_cr: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_reset_clip((cairo_t*)$a_cr);"
+		end
+
+	c_clip_extents (a_cr, a_out: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_clip_extents((cairo_t*)$a_cr, (double*)$a_out);"
+		end
+
+	c_push_group (a_cr: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_push_group((cairo_t*)$a_cr);"
+		end
+
+	c_pop_group_to_source (a_cr: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_pop_group_to_source((cairo_t*)$a_cr);"
+		end
+
+	c_set_dash (a_cr, a_dashes: POINTER; a_count: INTEGER; a_offset: REAL_64)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_set_dash((cairo_t*)$a_cr, (const double*)$a_dashes, $a_count, $a_offset);"
+		end
+
+	c_clear_dash (a_cr: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_clear_dash((cairo_t*)$a_cr);"
+		end
+
 invariant
 	surface_attached: surface /= Void
+	group_depth_non_negative: group_depth >= 0
 
 end

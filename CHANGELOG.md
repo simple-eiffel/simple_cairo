@@ -2,6 +2,22 @@
 
 All notable changes to simple_cairo will be documented in this file.
 
+## [1.1.0] - 2026-08-21
+
+### Added (Layer 0 - S09, driven by simple_narrate)
+- CAIRO_TEXT_EXTENTS: full six-field measurement record; x_advance is
+  the layout number (width is ink coverage and excludes trailing spaces)
+- CAIRO_FONT_EXTENTS: ascent, descent, line height, max advances
+- CAIRO_CONTEXT.text_extents / font_extents (buffer-marshalled, one C call)
+- text_width / text_height re-expressed over text_extents
+- set_antialias, set_font_antialias, set_font_hint_style + constants
+- clip, clip_preserve, reset_clip, clip_rectangle, clip_extents
+- push_group / pop_group_to_source with group_depth contract
+- set_dash / clear_dash
+- CAIRO_SURFACE.flush / mark_dirty (required around raw data access)
+- 18 new tests including the wrap-loop acceptance test and three
+  contract-violation tests that double as assertion-liveness proof
+
 ## [1.0.0] - 2025-12-29
 
 ### Added

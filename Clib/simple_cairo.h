@@ -583,4 +583,88 @@ static void sc_draw_shadow(cairo_t* cr, double offset_x, double offset_y,
     cairo_append_path(cr, path);
 }
 
+/* ============ LAYER 0 EXPANSION (S09) ============ */
+
+/* Full text extents: out6 = x_bearing, y_bearing, width, height, x_advance, y_advance */
+static void sc_text_extents(cairo_t* cr, const char* text, double* out6) {
+    cairo_text_extents_t e;
+    int i;
+    if (out6) { for (i = 0; i < 6; i++) out6[i] = 0.0; }
+    if (!cr || !text || !out6) return;
+    cairo_text_extents(cr, text, &e);
+    out6[0] = e.x_bearing; out6[1] = e.y_bearing;
+    out6[2] = e.width;     out6[3] = e.height;
+    out6[4] = e.x_advance; out6[5] = e.y_advance;
+}
+
+/* Font extents: out5 = ascent, descent, height, max_x_advance, max_y_advance */
+static void sc_font_extents(cairo_t* cr, double* out5) {
+    cairo_font_extents_t e;
+    int i;
+    if (out5) { for (i = 0; i < 5; i++) out5[i] = 0.0; }
+    if (!cr || !out5) return;
+    cairo_font_extents(cr, &e);
+    out5[0] = e.ascent; out5[1] = e.descent; out5[2] = e.height;
+    out5[3] = e.max_x_advance; out5[4] = e.max_y_advance;
+}
+
+/* Antialias mode for shapes and text */
+static void sc_set_antialias(cairo_t* cr, int mode) {
+    if (cr) cairo_set_antialias(cr, (cairo_antialias_t)mode);
+}
+
+/* Font-only antialias; the options object lives and dies inside this call */
+static void sc_set_font_antialias(cairo_t* cr, int mode) {
+    cairo_font_options_t* o;
+    if (!cr) return;
+    o = cairo_font_options_create();
+    cairo_get_font_options(cr, o);
+    cairo_font_options_set_antialias(o, (cairo_antialias_t)mode);
+    cairo_set_font_options(cr, o);
+    cairo_font_options_destroy(o);
+}
+
+/* Glyph grid-fitting style; same hidden-options pattern */
+static void sc_set_font_hint_style(cairo_t* cr, int style) {
+    cairo_font_options_t* o;
+    if (!cr) return;
+    o = cairo_font_options_create();
+    cairo_get_font_options(cr, o);
+    cairo_font_options_set_hint_style(o, (cairo_hint_style_t)style);
+    cairo_set_font_options(cr, o);
+    cairo_font_options_destroy(o);
+}
+
+/* Clipping */
+static void sc_clip(cairo_t* cr)          { if (cr) cairo_clip(cr); }
+static void sc_clip_preserve(cairo_t* cr) { if (cr) cairo_clip_preserve(cr); }
+static void sc_reset_clip(cairo_t* cr)    { if (cr) cairo_reset_clip(cr); }
+
+/* Clip extents: out4 = x1, y1, x2, y2 in user space */
+static void sc_clip_extents(cairo_t* cr, double* out4) {
+    double x1, y1, x2, y2;
+    int i;
+    if (out4) { for (i = 0; i < 4; i++) out4[i] = 0.0; }
+    if (!cr || !out4) return;
+    cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
+    out4[0] = x1; out4[1] = y1; out4[2] = x2; out4[3] = y2;
+}
+
+/* Group compositing */
+static void sc_push_group(cairo_t* cr)          { if (cr) cairo_push_group(cr); }
+static void sc_pop_group_to_source(cairo_t* cr) { if (cr) cairo_pop_group_to_source(cr); }
+
+/* Dash */
+static void sc_set_dash(cairo_t* cr, const double* dashes, int n, double offset) {
+    if (cr && dashes && n > 0) cairo_set_dash(cr, dashes, n, offset);
+}
+
+static void sc_clear_dash(cairo_t* cr) {
+    if (cr) cairo_set_dash(cr, (const double*)0, 0, 0.0);
+}
+
+/* Surface synchronization around raw data access */
+static void sc_surface_flush(cairo_surface_t* s)      { if (s) cairo_surface_flush(s); }
+static void sc_surface_mark_dirty(cairo_surface_t* s) { if (s) cairo_surface_mark_dirty(s); }
+
 #endif /* SIMPLE_CAIRO_H */
