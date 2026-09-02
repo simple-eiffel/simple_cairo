@@ -174,6 +174,53 @@ feature -- Pattern Creation
 			result_exists: Result /= Void
 		end
 
+feature -- Glyph Painting (Phase D - S07)
+
+	font_face_for_hfont (a_hfont: POINTER): CAIRO_FONT_FACE
+			-- Font face over a Windows HFONT, for painting shaped runs.
+			-- SAME-N (D-S03 / DR-009): cairo ignores the LOGFONT height
+			-- behind the HFONT - CAIRO_CONTEXT.set_font_size governs.
+			-- A null or unusable HFONT yields an invalid face, not an
+			-- exception; check `Result.is_valid'.
+		do
+			create Result.make_for_hfont (a_hfont)
+			if not Result.is_valid then
+				last_error := "Failed to create font face"
+			else
+				last_error := ""
+			end
+		ensure
+			result_exists: Result /= Void
+		end
+
+	font_face_for_logfontw_hfont (a_logfontw, a_hfont: POINTER): CAIRO_FONT_FACE
+			-- Font face over an HFONT plus the LOGFONTW it was made from.
+			-- The constructor a shaper wants: it saves cairo a GetObjectW
+			-- round trip and keeps the description authoritative.
+		do
+			create Result.make_for_logfontw_hfont (a_logfontw, a_hfont)
+			if not Result.is_valid then
+				last_error := "Failed to create font face"
+			else
+				last_error := ""
+			end
+		ensure
+			result_exists: Result /= Void
+		end
+
+	glyph_array (a_count: INTEGER): CAIRO_GLYPH_ARRAY
+			-- Zeroed room for `a_count' glyphs, to fill with ids and
+			-- absolute positions and hand to CAIRO_CONTEXT.show_glyph_array.
+		require
+			count_not_negative: a_count >= 0
+		do
+			create Result.make (a_count)
+			last_error := ""
+		ensure
+			result_exists: Result /= Void
+			count_set: Result.count = a_count
+		end
+
 feature -- Library
 
 	cairo_version: STRING_32

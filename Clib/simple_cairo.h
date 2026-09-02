@@ -895,4 +895,131 @@ static void sc_device_finish(cairo_device_t* d) { if (d) cairo_device_finish(d);
 static const char* sc_status_string(int s) { return cairo_status_to_string((cairo_status_t)s); }
 static const char* sc_version_string(void) { return cairo_version_string(); }
 
+/* ============ PHASE D (S07): GLYPH-LEVEL TEXT ============
+ *
+ * Glyph painting for pre-shaped text (simple_shaping, decision D-S07).
+ * Two halves:
+ *
+ *   1. a cairo_font_face_t built from a Windows font realization
+ *      (an HFONT, optionally with the LOGFONTW it came from), and
+ *   2. cairo_glyph_t array marshalling.
+ *
+ * cairo_glyph_t is { unsigned long index; double x; double y; }.
+ * On win64 `unsigned long' is 4 bytes and the doubles force 8-byte
+ * alignment, so the struct is 24 bytes with 4 bytes of padding after
+ * `index': index @0, x @8, y @16. VERIFIED with both MSVC 14.44
+ * (the compiler EiffelStudio drives here) and MinGW gcc 8.1 - not
+ * assumed. Eiffel never hard-codes those numbers either: it asks for
+ * them through sc_glyph_sizeof / sc_glyph_offset_* and writes every
+ * field through sc_glyph_put, so an LP64 build (unsigned long = 8
+ * bytes, no padding, coincidentally the same 24) needs no change
+ * above this line.
+ *
+ * SAME-N RULE (D-S03 / DR-009): cairo IGNORES the LOGFONT height
+ * fields and sizes text through the font matrix. Shape at pixel size
+ * N through the HFONT, then cairo_set_font_size(N) on the face built
+ * from that same HFONT, or the shaper's positions and cairo's glyphs
+ * will disagree.
+ */
+
+#include <stddef.h>
+
+#ifdef _WIN32
+#include "cairo-win32.h"
+
+/* NULL-guarded: a null HFONT yields a null face rather than a cairo
+   call with a handle GetObjectW cannot resolve. The Eiffel side then
+   reports an invalid face instead of raising. */
+static cairo_font_face_t* sc_win32_face_for_hfont(void* hfont) {
+    return hfont ? cairo_win32_font_face_create_for_hfont((HFONT)hfont)
+                 : (cairo_font_face_t*)0;
+}
+
+/* Either argument may be null (cairo accepts logfont-only and
+   hfont-only), but not both. */
+static cairo_font_face_t* sc_win32_face_for_logfontw_hfont(void* logfontw, void* hfont) {
+    if (!logfontw && !hfont) return (cairo_font_face_t*)0;
+    return cairo_win32_font_face_create_for_logfontw_hfont((LOGFONTW*)logfontw,
+                                                           (HFONT)hfont);
+}
+#else
+/* Stubs when the win32 font backend is not available. */
+static cairo_font_face_t* sc_win32_face_for_hfont(void* hfont) {
+    (void)hfont;
+    return (cairo_font_face_t*)0;
+}
+static cairo_font_face_t* sc_win32_face_for_logfontw_hfont(void* logfontw, void* hfont) {
+    (void)logfontw; (void)hfont;
+    return (cairo_font_face_t*)0;
+}
+#endif
+
+/* Font face: status, reference count, disposal, installation. */
+static int sc_font_face_status(cairo_font_face_t* f) {
+    return f ? (int)cairo_font_face_status(f) : -1;
+}
+static int sc_font_face_ref_count(cairo_font_face_t* f) {
+    return f ? (int)cairo_font_face_get_reference_count(f) : 0;
+}
+static void sc_font_face_destroy(cairo_font_face_t* f) {
+    if (f) cairo_font_face_destroy(f);
+}
+static void sc_set_font_face(cairo_t* cr, cairo_font_face_t* f) {
+    if (cr && f) cairo_set_font_face(cr, f);
+}
+
+/* cairo_glyph_t marshalling. The layout is REPORTED, never assumed. */
+static int sc_glyph_sizeof(void)       { return (int)sizeof(cairo_glyph_t); }
+static int sc_glyph_offset_index(void) { return (int)offsetof(cairo_glyph_t, index); }
+static int sc_glyph_offset_x(void)     { return (int)offsetof(cairo_glyph_t, x); }
+static int sc_glyph_offset_y(void)     { return (int)offsetof(cairo_glyph_t, y); }
+
+static void sc_glyph_zero(void* base, int n) {
+    if (base && n > 0) memset(base, 0, (size_t)n * sizeof(cairo_glyph_t));
+}
+
+/* 0-based slot; the Eiffel side does the 1-based bookkeeping. */
+static void sc_glyph_put(void* base, int i, unsigned int index, double x, double y) {
+    cairo_glyph_t* g;
+    if (!base || i < 0) return;
+    g = ((cairo_glyph_t*)base) + i;
+    g->index = (unsigned long)index;
+    g->x = x;
+    g->y = y;
+}
+static unsigned int sc_glyph_index_at(void* base, int i) {
+    if (!base || i < 0) return 0u;
+    return (unsigned int)(((cairo_glyph_t*)base)[i].index);
+}
+static double sc_glyph_x_at(void* base, int i) {
+    if (!base || i < 0) return 0.0;
+    return ((cairo_glyph_t*)base)[i].x;
+}
+static double sc_glyph_y_at(void* base, int i) {
+    if (!base || i < 0) return 0.0;
+    return ((cairo_glyph_t*)base)[i].y;
+}
+
+/* An empty run is a no-op, never a cairo error. */
+static void sc_show_glyphs(cairo_t* cr, void* glyphs, int n) {
+    if (!cr || !glyphs || n <= 0) return;
+    cairo_show_glyphs(cr, (const cairo_glyph_t*)glyphs, n);
+}
+
+/* out6 = x_bearing, y_bearing, width, height, x_advance, y_advance.
+   An empty run reports six zeros without touching cairo. */
+static void sc_glyph_extents(cairo_t* cr, void* glyphs, int n, double* out6) {
+    cairo_text_extents_t e;
+    if (!out6) return;
+    memset(out6, 0, 6 * sizeof(double));
+    if (!cr || !glyphs || n <= 0) return;
+    cairo_glyph_extents(cr, (const cairo_glyph_t*)glyphs, n, &e);
+    out6[0] = e.x_bearing;
+    out6[1] = e.y_bearing;
+    out6[2] = e.width;
+    out6[3] = e.height;
+    out6[4] = e.x_advance;
+    out6[5] = e.y_advance;
+}
+
 #endif /* SIMPLE_CAIRO_H */

@@ -14,7 +14,7 @@
         <h1>simple_cairo</h1>
         <p class="tagline">Cross-platform 2D Graphics for Eiffel</p>
         <div class="badges">
-            <span class="badge badge-version">v1.0.0</span>
+            <span class="badge badge-version">v1.3.0</span>
             <span class="badge badge-license">MIT</span>
         </div>
     </header>
@@ -25,6 +25,7 @@
             <li><a href="#quick-start">Quick Start</a></li>
             <li><a href="#features">Features</a></li>
             <li><a href="#api">API Reference</a></li>
+            <li><a href="#glyphs">Glyph API</a></li>
             <li><a href="https://github.com/simple-eiffel/simple_cairo">GitHub</a></li>
         </ul>
     </nav>
@@ -117,6 +118,11 @@
                 </div>
 
                 <div class="feature-card">
+                    <h4>Glyph Painting</h4>
+                    <p>Paint pre-shaped glyph runs - ids plus absolute positions - through a Windows HFONT.</p>
+                </div>
+
+                <div class="feature-card">
                     <h4>Waveform Visualization</h4>
                     <p>Audio waveform drawing from PCM samples for speech applications.</p>
                 </div>
@@ -139,6 +145,9 @@
                 <div class="signature">vertical_gradient (y1, y2: REAL_64): CAIRO_GRADIENT</div>
                 <div class="signature">horizontal_gradient (x1, x2: REAL_64): CAIRO_GRADIENT</div>
                 <div class="signature">radial_gradient (cx, cy, radius: REAL_64): CAIRO_GRADIENT</div>
+                <div class="signature">font_face_for_hfont (hfont: POINTER): CAIRO_FONT_FACE</div>
+                <div class="signature">font_face_for_logfontw_hfont (logfontw, hfont: POINTER): CAIRO_FONT_FACE</div>
+                <div class="signature">glyph_array (count: INTEGER): CAIRO_GLYPH_ARRAY</div>
             </div>
 
             <div class="api-section">
@@ -168,6 +177,41 @@
                 <div class="signature">fill: CAIRO_CONTEXT</div>
                 <div class="signature">stroke: CAIRO_CONTEXT</div>
                 <div class="signature">draw_waveform_i16 (data: POINTER; count, x, y, w, h: INTEGER): CAIRO_CONTEXT</div>
+                <div class="signature">set_font_face (face: CAIRO_FONT_FACE): CAIRO_CONTEXT</div>
+                <div class="signature">show_glyphs (ids: ARRAY [NATURAL_32]; xs, ys: ARRAY [REAL_64]): CAIRO_CONTEXT</div>
+                <div class="signature">show_glyph_array (glyphs: CAIRO_GLYPH_ARRAY): CAIRO_CONTEXT</div>
+                <div class="signature">glyph_extents (ids: ARRAY [NATURAL_32]; xs, ys: ARRAY [REAL_64]): CAIRO_TEXT_EXTENTS</div>
+                <div class="signature">glyph_array_extents (glyphs: CAIRO_GLYPH_ARRAY): CAIRO_TEXT_EXTENTS</div>
+            </div>
+
+            <div class="api-section">
+                <h3>CAIRO_FONT_FACE</h3>
+                <p>A cairo font face over a Windows font realization, for painting shaped glyph runs.
+                   A null HFONT yields an invalid face rather than an exception.</p>
+                <div class="signature">make_for_hfont (hfont: POINTER)</div>
+                <div class="signature">make_for_logfontw_hfont (logfontw, hfont: POINTER)</div>
+                <div class="signature">is_valid: BOOLEAN</div>
+                <div class="signature">status: INTEGER</div>
+                <div class="signature">reference_count: INTEGER</div>
+                <div class="signature">destroy</div>
+                <p><strong>Same-N:</strong> cairo ignores the LOGFONT height - shape at pixel size N,
+                   then <code>set_font_size (N)</code>. At that size, with the default antialias mode,
+                   cairo 1.17.2 reuses your HFONT as its own internal scaled font (built at 32 x N) and
+                   renders at about 1/32 size, silently; call
+                   <code>set_font_antialias (Antialias_subpixel)</code> first.
+                   <strong>Lifetime:</strong> cairo's face cache is keyed on face name, weight and italic
+                   only, so never DeleteObject an HFONT cairo may still hold.</p>
+            </div>
+
+            <div class="api-section">
+                <h3>CAIRO_GLYPH_ARRAY</h3>
+                <p>A marshalled cairo_glyph_t run: 1-based, zeroed on creation. The struct layout is
+                   reported by the C compiler, never assumed - 24 bytes on win64, id at 0, x at 8, y at 16.</p>
+                <div class="signature">make (count: INTEGER)</div>
+                <div class="signature">make_from_arrays (ids: ARRAY [NATURAL_32]; xs, ys: ARRAY [REAL_64])</div>
+                <div class="signature">put (i: INTEGER; glyph_id: NATURAL_32; x, y: REAL_64)</div>
+                <div class="signature">glyph_id (i: INTEGER): NATURAL_32</div>
+                <div class="signature">Glyph_struct_size: INTEGER</div>
             </div>
 
             <div class="api-section">
@@ -178,6 +222,29 @@
                 <div class="signature">add_stop_hex (offset: REAL_64; color: NATURAL_32): CAIRO_GRADIENT</div>
                 <div class="signature">destroy</div>
             </div>
+        </section>
+
+        <section id="glyphs">
+            <h2>Glyph API Example</h2>
+<pre><code><span class="keyword">local</span>
+    face: <span class="type">CAIRO_FONT_FACE</span>
+    ids: <span class="type">ARRAY</span> [<span class="type">NATURAL_32</span>]
+    xs, ys: <span class="type">ARRAY</span> [<span class="type">REAL_64</span>]
+<span class="keyword">do</span>
+    <span class="comment">-- `hfont' is a Windows HFONT the caller owns and keeps alive.</span>
+    face := cairo.font_face_for_hfont (hfont)
+
+    <span class="comment">-- REQUIRED at same-N: an explicit antialias mode.</span>
+    ctx.set_font_antialias (ctx.Antialias_subpixel).do_nothing
+
+    ctx.set_font_face (face).set_font_size (16.0).do_nothing
+    ctx.show_glyphs (ids, xs, ys).do_nothing   <span class="comment">-- absolute positions</span>
+
+    face.destroy
+<span class="keyword">end</span></code></pre>
+            <p>The ids are physical glyph indices of that HFONT - what GetGlyphIndicesW or a shaper
+               returns - not characters, and the positions are absolute glyph origins, not advances.
+               Cairo does no shaping here and never re-measures.</p>
         </section>
 
         <section id="gradients">
