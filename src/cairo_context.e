@@ -7,7 +7,7 @@ note
 		- Colors (RGB, RGBA, hex)
 		- Fills and strokes
 		- Gradients
-		- Text
+		- Text (toy API: show_text) and glyphs (show_glyphs, for shaped runs)
 		- Waveforms (for audio visualization)
 
 		Usage:
@@ -627,6 +627,99 @@ feature -- Text (Fluent API)
 			create Result.make_from_buffer (l_buf)
 		end
 
+feature -- Glyphs (Fluent API)
+
+	set_font_face (a_face: CAIRO_FONT_FACE): like Current
+			-- Paint with `a_face' - a font realization the caller owns
+			-- (on Windows, an HFONT). Cairo takes its own reference, so
+			-- the face may be destroyed once every context using it has
+			-- moved on.
+			--
+			-- SAME-N RULE (D-S03 / DR-009): cairo IGNORES the LOGFONT
+			-- height fields behind the face. The size in force is whatever
+			-- `set_font_size' last set. Shape at pixel size N, then call
+			-- `set_font_size (N)' on this same face - otherwise the
+			-- shaper's positions and cairo's glyphs describe different type.
+			--
+			-- AND, at same-N, ALSO call `set_font_antialias' with an
+			-- explicit mode (`Antialias_subpixel' keeps ClearType). With
+			-- `Antialias_default' a win32 face draws at about 1/32 scale at
+			-- exactly the pixel size its HFONT was built at, silently. See
+			-- the SAME-N TRAP note in CAIRO_FONT_FACE, which also carries
+			-- the HFONT lifetime rule.
+		require
+			valid: is_valid
+			face_valid: a_face.is_valid
+		do
+			c_set_font_face (handle, a_face.handle)
+			Result := Current
+		end
+
+	show_glyphs (a_glyph_ids: ARRAY [NATURAL_32]; a_xs, a_ys: ARRAY [REAL_64]): like Current
+			-- Paint `a_glyph_ids' at the given positions.
+			--
+			-- The ids are PHYSICAL glyph indices of the current font face,
+			-- not characters, so this feature does no shaping and no
+			-- fallback: it draws exactly what it is handed. The positions
+			-- are ABSOLUTE user-space coordinates of each glyph's origin
+			-- (baseline), not advances - cairo never re-measures. The
+			-- three arrays are parallel and must be the same length; an
+			-- empty run is a no-op, never a cairo error.
+		require
+			valid: is_valid
+			ids_and_xs_agree: a_glyph_ids.count = a_xs.count
+			xs_and_ys_agree: a_xs.count = a_ys.count
+		local
+			l_glyphs: CAIRO_GLYPH_ARRAY
+		do
+			if not a_glyph_ids.is_empty then
+				create l_glyphs.make_from_arrays (a_glyph_ids, a_xs, a_ys)
+				c_show_glyphs (handle, l_glyphs.area, l_glyphs.count)
+			end
+			Result := Current
+		end
+
+	show_glyph_array (a_glyphs: CAIRO_GLYPH_ARRAY): like Current
+			-- Paint an already marshalled run. The sibling of `show_glyphs'
+			-- for a caller that builds a run once and repaints it every
+			-- frame: nothing is copied here.
+		require
+			valid: is_valid
+		do
+			c_show_glyphs (handle, a_glyphs.area, a_glyphs.count)
+			Result := Current
+		end
+
+	glyph_extents (a_glyph_ids: ARRAY [NATURAL_32]; a_xs, a_ys: ARRAY [REAL_64]): CAIRO_TEXT_EXTENTS
+			-- Extents of the run `show_glyphs' would paint.
+			-- `Result.x_advance' is the layout number; `Result.width' is
+			-- ink coverage only. An empty run measures as six zeros.
+		require
+			valid: is_valid
+			ids_and_xs_agree: a_glyph_ids.count = a_xs.count
+			xs_and_ys_agree: a_xs.count = a_ys.count
+		local
+			l_glyphs: CAIRO_GLYPH_ARRAY
+			l_buf: MANAGED_POINTER
+		do
+			create l_glyphs.make_from_arrays (a_glyph_ids, a_xs, a_ys)
+			create l_buf.make (48)
+			c_glyph_extents (handle, l_glyphs.area, l_glyphs.count, l_buf.item)
+			create Result.make_from_buffer (l_buf)
+		end
+
+	glyph_array_extents (a_glyphs: CAIRO_GLYPH_ARRAY): CAIRO_TEXT_EXTENTS
+			-- Extents of an already marshalled run.
+		require
+			valid: is_valid
+		local
+			l_buf: MANAGED_POINTER
+		do
+			create l_buf.make (48)
+			c_glyph_extents (handle, a_glyphs.area, a_glyphs.count, l_buf.item)
+			create Result.make_from_buffer (l_buf)
+		end
+
 feature -- Waveform Drawing
 
 	draw_waveform_i16 (a_samples: POINTER; a_count: INTEGER;
@@ -1233,6 +1326,21 @@ feature {NONE} -- C Externals
 	c_status_string (a_s: INTEGER): POINTER
 		external "C inline use %"simple_cairo.h%""
 		alias "return (void*)sc_status_string($a_s);"
+		end
+
+	c_set_font_face (a_cr, a_face: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_set_font_face((cairo_t*)$a_cr, (cairo_font_face_t*)$a_face);"
+		end
+
+	c_show_glyphs (a_cr, a_glyphs: POINTER; a_count: INTEGER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_show_glyphs((cairo_t*)$a_cr, $a_glyphs, $a_count);"
+		end
+
+	c_glyph_extents (a_cr, a_glyphs: POINTER; a_count: INTEGER; a_out: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "sc_glyph_extents((cairo_t*)$a_cr, $a_glyphs, $a_count, (double*)$a_out);"
 		end
 
 invariant

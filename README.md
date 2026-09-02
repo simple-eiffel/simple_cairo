@@ -25,6 +25,7 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 - **Colors** - RGB, RGBA, hex color support
 - **Gradients** - Linear and radial gradients with color stops
 - **Text** - Font selection, sizing, and rendering
+- **Glyphs** - Paint pre-shaped glyph runs through a Windows HFONT
 - **Transforms** - Translate, scale, rotate
 - **Waveforms** - Audio visualization for speech applications
 - **PNG Export** - Save surfaces to PNG files
@@ -117,6 +118,52 @@ ctx.set_color_hex (0x3498DB)
    .draw_waveform_i16 (samples_pointer, sample_count, 10, 10, 380, 100).do_nothing
 ```
 
+## Glyph API
+
+For text that has already been shaped elsewhere (simple_shaping, Uniscribe,
+DirectWrite), paint the glyph ids and positions directly - cairo does no
+shaping and never re-measures:
+
+```eiffel
+local
+    face: CAIRO_FONT_FACE
+    ids: ARRAY [NATURAL_32]
+    xs, ys: ARRAY [REAL_64]
+do
+    -- `hfont' is a Windows HFONT the caller owns and keeps alive.
+    face := cairo.font_face_for_hfont (hfont)
+
+    -- REQUIRED at same-N: an explicit antialias mode. See below.
+    ctx.set_font_antialias (ctx.Antialias_subpixel).do_nothing
+
+    ctx.set_font_face (face).set_font_size (16.0).do_nothing
+    ctx.show_glyphs (ids, xs, ys).do_nothing   -- absolute positions
+
+    face.destroy
+end
+```
+
+`ids` are PHYSICAL glyph indices of that HFONT (what `GetGlyphIndicesW` or
+a shaper returns), not characters. `xs` / `ys` are absolute user-space
+positions of each glyph origin, not advances. The three arrays must be the
+same length; an empty run is a no-op. `ctx.glyph_extents (ids, xs, ys)`
+measures the same run and returns six zeros for an empty one.
+
+### Two rules the win32 font backend imposes
+
+**Same-N.** Cairo ignores the LOGFONT height and sizes through the font
+matrix, so shape at pixel size N and call `set_font_size (N)`. But at
+exactly that size, with `Antialias_default`, cairo 1.17.2 reuses your
+HFONT as its own internal scaled font (which it builds at 32 x N) and
+renders at about 1/32 size - silently. Setting any explicit antialias
+mode first avoids it; `Antialias_subpixel` keeps ClearType.
+
+**HFONT lifetime.** Cairo's font-face cache is keyed on face name, weight
+and italic - not on your HFONT - so the face it built outlives the
+`CAIRO_FONT_FACE` object. Never `DeleteObject` an HFONT cairo may still
+hold: the dangling handle surfaces as `CAIRO_STATUS_WIN32_GDI_ERROR` (41)
+and poisons the shared face for the rest of the process.
+
 ## API Classes
 
 | Class | Purpose |
@@ -125,6 +172,8 @@ ctx.set_color_hex (0x3498DB)
 | CAIRO_SURFACE | Image surface wrapper |
 | CAIRO_CONTEXT | Drawing context with fluent API |
 | CAIRO_GRADIENT | Linear and radial gradient patterns |
+| CAIRO_FONT_FACE | Font face over a Windows HFONT, for glyph painting |
+| CAIRO_GLYPH_ARRAY | Marshalled cairo_glyph_t run: ids + absolute positions |
 
 ## Dependencies
 

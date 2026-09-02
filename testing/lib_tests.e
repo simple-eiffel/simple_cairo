@@ -1728,4 +1728,662 @@ feature -- Get-Ahead Sprint Tests (S10 C2/D1)
 			assert ("major.minor shape", cairo.cairo_version.has ('.'))
 		end
 
+feature -- Phase D: Glyph API Tests (S07)
+
+	test_glyph_struct_layout
+			-- The cairo_glyph_t layout is REPORTED by the C compiler, never
+			-- assumed. On win64: 24 bytes, id at 0 (an `unsigned long' of 4
+			-- bytes plus the 4 bytes of padding the doubles force), x at 8,
+			-- y at 16. If a future toolchain disagrees, this says so before
+			-- a single glyph is mis-drawn.
+		note
+			testing: "covers/{CAIRO_GLYPH_ARRAY}.Glyph_struct_size"
+		local
+			g: CAIRO_GLYPH_ARRAY
+		do
+			create g.make (0)
+			assert ("glyph struct is 24 bytes", g.Glyph_struct_size = 24)
+			assert ("id at offset 0", g.Glyph_index_offset = 0)
+			assert ("x at offset 8", g.Glyph_x_offset = 8)
+			assert ("y at offset 16", g.Glyph_y_offset = 16)
+			assert ("empty array is legal", g.is_empty and g.count = 0)
+		end
+
+	test_glyph_array_roundtrip
+			-- Ids and positions survive marshalling both ways, and a fresh
+			-- array is zeroed rather than garbage.
+		note
+			testing: "covers/{CAIRO_GLYPH_ARRAY}.put"
+		local
+			g: CAIRO_GLYPH_ARRAY
+		do
+			create g.make (3)
+			assert ("count 3", g.count = 3)
+			assert ("zeroed id", g.glyph_id (1) = {NATURAL_32} 0)
+			assert ("zeroed x", g.x (1) = 0.0)
+			assert ("zeroed y", g.y (3) = 0.0)
+
+			g.put (1, {NATURAL_32} 40, 0.0, 12.0)
+			g.put (2, {NATURAL_32} 41, 9.5, 12.0)
+			g.put (3, {NATURAL_32} 65535, 19.25, -3.5)
+
+			assert ("first id", g.glyph_id (1) = {NATURAL_32} 40)
+			assert ("last id is 16-bit wide", g.glyph_id (3) = {NATURAL_32} 65535)
+			assert ("second x", g.x (2) = 9.5)
+			assert ("negative y kept", g.y (3) = -3.5)
+
+			create g.make_from_arrays (<<{NATURAL_32} 7, {NATURAL_32} 8>>,
+				<<1.0, 2.0>>, <<3.0, 4.0>>)
+			assert ("from arrays count", g.count = 2)
+			assert ("from arrays id", g.glyph_id (2) = {NATURAL_32} 8)
+			assert ("from arrays x", g.x (1) = 1.0)
+			assert ("from arrays y", g.y (2) = 4.0)
+		end
+
+	test_font_face_for_hfont
+			-- A cairo face over a real Windows HFONT.
+		note
+			testing: "covers/{CAIRO_FONT_FACE}.make_for_hfont"
+		local
+			face: CAIRO_FONT_FACE
+		do
+			assert ("LOGFONTW is 92 bytes on win64", c_logfontw_size = 92)
+			assert ("hfont created", shared_test_hfont /= default_pointer)
+
+			face := cairo.font_face_for_hfont (shared_test_hfont)
+			assert ("face valid", face.is_valid)
+			assert ("status ok", face.status = 0)
+			assert ("status message readable",
+				face.status_message.as_lower.has_substring ("no error"))
+			assert ("a reference is held", face.reference_count >= 1)
+			face.destroy
+			assert ("destroyed", not face.is_valid)
+			assert ("handle released", face.reference_count = 0)
+		end
+
+	test_font_face_for_logfontw_hfont
+			-- The constructor a shaper wants: cairo gets the LOGFONTW the
+			-- caller already built, not one recovered with GetObjectW.
+		note
+			testing: "covers/{CAIRO_FONT_FACE}.make_for_logfontw_hfont"
+		local
+			face: CAIRO_FONT_FACE
+		do
+			face := cairo.font_face_for_logfontw_hfont (shared_test_logfontw.item,
+				shared_test_hfont)
+			assert ("face valid", face.is_valid)
+			assert ("status ok", face.status = 0)
+			face.destroy
+		end
+
+	test_font_face_null_hfont_is_invalid
+			-- A bad handle must report an invalid face, not raise - and it
+			-- must not reach cairo at all.
+		note
+			testing: "covers/{CAIRO_FONT_FACE}.status"
+		local
+			face: CAIRO_FONT_FACE
+		do
+			create face.make_for_hfont (default_pointer)
+			assert ("not valid", not face.is_valid)
+			assert ("status reports failure", face.status /= 0)
+			assert ("holds nothing", face.reference_count = 0)
+			face.destroy
+			assert ("destroy is safe", not face.is_valid)
+
+			create face.make_for_logfontw_hfont (default_pointer, default_pointer)
+			assert ("two nulls are invalid", not face.is_valid)
+			face.destroy
+		end
+
+	test_show_glyphs_paints_ink
+			-- The end-to-end claim (D-S03): glyph ids taken from an HFONT
+			-- with GetGlyphIndicesW, painted through the cairo face built
+			-- from that SAME HFONT, put ink on the surface. The two glyph-id
+			-- spaces are one.
+			--
+			-- The explicit antialias mode is REQUIRED, not decoration - see
+			-- `test_same_n_needs_explicit_antialias'.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.show_glyphs"
+		local
+			face: CAIRO_FONT_FACE
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ids: ARRAY [NATURAL_32]
+			xs, ys: ARRAY [REAL_64]
+			i, gid, ink_before, ink_after: INTEGER
+		do
+			face := cairo.font_face_for_hfont (shared_test_hfont)
+			assert ("face valid", face.is_valid)
+
+			surface := cairo.create_surface (200, 40)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			surface.flush.do_nothing
+			ink_before := surface_ink_count (surface)
+			assert ("white ground carries no ink", ink_before = 0)
+
+			create ids.make_filled ({NATURAL_32} 0, 1, Sample_text.count)
+			create xs.make_filled (0.0, 1, Sample_text.count)
+			create ys.make_filled (0.0, 1, Sample_text.count)
+			from
+				i := 1
+			until
+				i > Sample_text.count
+			loop
+				gid := c_glyph_id_for_char (shared_test_hfont, Sample_text.item (i).code)
+				assert ("glyph id resolved", gid > 0 and gid /= 0xFFFF)
+				ids [i] := gid.to_natural_32
+				xs [i] := 8.0 + (i - 1) * 11.0
+				ys [i] := 28.0
+				i := i + 1
+			end
+
+			ctx.set_color_rgb (0.0, 0.0, 0.0).do_nothing
+			ctx.set_font_antialias (ctx.Antialias_subpixel).do_nothing
+			ctx.set_font_face (face).set_font_size (Test_pixel_size.to_double).do_nothing
+			assert ("face installed, context still ok", ctx.status = 0)
+			assert ("context took its own reference", face.reference_count >= 2)
+
+			ctx.show_glyphs (ids, xs, ys).do_nothing
+			assert ("no cairo error", ctx.status = 0)
+			surface.flush.do_nothing
+
+			ink_after := surface_ink_count (surface)
+			assert ("glyphs put ink on the surface", ink_after > 20)
+
+			ctx.destroy
+			surface.destroy
+			face.destroy
+		end
+
+	test_show_glyph_array_paints_ink
+			-- The zero-copy path: a run built once and painted as is.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.show_glyph_array"
+		local
+			face: CAIRO_FONT_FACE
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			run: CAIRO_GLYPH_ARRAY
+			i, gid: INTEGER
+		do
+			face := cairo.font_face_for_hfont (shared_test_hfont)
+			surface := cairo.create_surface (200, 40)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+
+			run := cairo.glyph_array (Sample_text.count)
+			from
+				i := 1
+			until
+				i > run.count
+			loop
+				gid := c_glyph_id_for_char (shared_test_hfont, Sample_text.item (i).code)
+				run.put (i, gid.to_natural_32, 8.0 + (i - 1) * 11.0, 28.0)
+				i := i + 1
+			end
+
+			ctx.set_color_rgb (0.0, 0.0, 0.0).do_nothing
+			ctx.set_font_antialias (ctx.Antialias_subpixel).do_nothing
+			ctx.set_font_face (face).set_font_size (Test_pixel_size.to_double).do_nothing
+			ctx.show_glyph_array (run).do_nothing
+			assert ("no cairo error", ctx.status = 0)
+			surface.flush.do_nothing
+			assert ("array path put ink down", surface_ink_count (surface) > 20)
+
+			ctx.destroy
+			surface.destroy
+			face.destroy
+		end
+
+	test_glyph_extents_measures_run
+			-- Measurement of a real run: ink is positive and the advance
+			-- (the layout number) carries past the last glyph's origin.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.glyph_extents"
+		local
+			face: CAIRO_FONT_FACE
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ids: ARRAY [NATURAL_32]
+			xs, ys: ARRAY [REAL_64]
+			e: CAIRO_TEXT_EXTENTS
+			i, gid: INTEGER
+		do
+			face := cairo.font_face_for_hfont (shared_test_hfont)
+			surface := cairo.create_surface (200, 40)
+			ctx := cairo.create_context (surface)
+			ctx.set_font_antialias (ctx.Antialias_subpixel).do_nothing
+			ctx.set_font_face (face).set_font_size (Test_pixel_size.to_double).do_nothing
+
+			create ids.make_filled ({NATURAL_32} 0, 1, Sample_text.count)
+			create xs.make_filled (0.0, 1, Sample_text.count)
+			create ys.make_filled (0.0, 1, Sample_text.count)
+			from
+				i := 1
+			until
+				i > Sample_text.count
+			loop
+				gid := c_glyph_id_for_char (shared_test_hfont, Sample_text.item (i).code)
+				ids [i] := gid.to_natural_32
+				xs [i] := (i - 1) * 11.0
+				i := i + 1
+			end
+
+			e := ctx.glyph_extents (ids, xs, ys)
+			assert ("positive ink width", e.width > 0.0)
+			assert ("positive ink height", e.height > 0.0)
+			assert ("advance clears the last origin",
+				e.x_advance > (Sample_text.count - 1) * 11.0)
+			assert ("horizontal run has no y advance", e.y_advance = 0.0)
+
+			ctx.destroy
+			surface.destroy
+			face.destroy
+		end
+
+	test_glyph_extents_empty_is_zero
+			-- An empty run measures as six zeros and is NOT a cairo error.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.glyph_extents"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ids: ARRAY [NATURAL_32]
+			xs, ys: ARRAY [REAL_64]
+			e: CAIRO_TEXT_EXTENTS
+		do
+			surface := cairo.create_surface (32, 32)
+			ctx := cairo.create_context (surface)
+			create ids.make_empty
+			create xs.make_empty
+			create ys.make_empty
+
+			e := ctx.glyph_extents (ids, xs, ys)
+			assert ("zero width", e.width = 0.0)
+			assert ("zero height", e.height = 0.0)
+			assert ("zero advance", e.x_advance = 0.0)
+			assert ("empty run left no error", ctx.status = 0)
+
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_show_glyphs_empty_is_noop
+			-- An empty run paints nothing and leaves the context clean.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.show_glyphs"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ids: ARRAY [NATURAL_32]
+			xs, ys: ARRAY [REAL_64]
+		do
+			surface := cairo.create_surface (32, 32)
+			ctx := cairo.create_context (surface)
+			ctx.set_color_rgb (1.0, 1.0, 1.0).paint.do_nothing
+			create ids.make_empty
+			create xs.make_empty
+			create ys.make_empty
+
+			ctx.set_color_rgb (0.0, 0.0, 0.0).do_nothing
+			ctx.show_glyphs (ids, xs, ys).do_nothing
+			assert ("empty run left no error", ctx.status = 0)
+			surface.flush.do_nothing
+			assert ("nothing painted", surface_ink_count (surface) = 0)
+
+			ctx.destroy
+			surface.destroy
+		end
+
+	test_font_size_governs_not_logfont_height
+			-- SAME-N (D-S03 / DR-009) made visible. The HFONT behind this
+			-- face was built with lfHeight = -16, but cairo IGNORES LOGFONT
+			-- height when sizing: it sizes through the font matrix. The same
+			-- single glyph measured at set_font_size (32) is markedly larger
+			-- than at 16 - which is why a caller must shape at N and then
+			-- set_font_size (N), never trust the LOGFONT to carry the size.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_font_face"
+		local
+			face: CAIRO_FONT_FACE
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ids: ARRAY [NATURAL_32]
+			xs, ys: ARRAY [REAL_64]
+			e16, e32: CAIRO_TEXT_EXTENTS
+			gid: INTEGER
+		do
+			face := cairo.font_face_for_hfont (shared_test_hfont)
+			surface := cairo.create_surface (64, 64)
+			ctx := cairo.create_context (surface)
+			ctx.set_font_antialias (ctx.Antialias_subpixel).do_nothing
+			ctx.set_font_face (face).do_nothing
+
+			gid := c_glyph_id_for_char (shared_test_hfont, ('H').code)
+			assert ("glyph id resolved", gid > 0 and gid /= 0xFFFF)
+			ids := <<gid.to_natural_32>>
+			xs := <<0.0>>
+			ys := <<0.0>>
+
+			e16 := ctx.set_font_size (16.0).glyph_extents (ids, xs, ys)
+			e32 := ctx.set_font_size (32.0).glyph_extents (ids, xs, ys)
+
+			assert ("16 px glyph has ink", e16.width > 0.0)
+			assert ("32 px is markedly wider", e32.width > e16.width * 1.5)
+			assert ("and not more than doubled-plus", e32.width < e16.width * 2.5)
+			assert ("advance scales too", e32.x_advance > e16.x_advance * 1.5)
+
+			ctx.destroy
+			surface.destroy
+			face.destroy
+		end
+
+	test_same_n_needs_explicit_antialias
+			-- THE TRAP, pinned. Measured on cairo 1.17.2 / win64.
+			--
+			-- At exactly set_font_size (N), where N is the pixel size of the
+			-- HFONT behind the face, and with the DEFAULT antialias mode,
+			-- cairo's win32 backend reuses the caller's HFONT as its own
+			-- INTERNAL scaled font - which it builds at 32 x N - so glyphs
+			-- come back about 1/32 of full size: a 16 px capital H measures
+			-- 4 x 1 instead of 12 x 11, and paints accordingly. No error is
+			-- raised, which is what makes it dangerous. And same-N is the
+			-- ONE case a shaping caller is always in (D-S03 / DR-009).
+			--
+			-- Every OTHER size is correct, and ANY explicit antialias mode
+			-- is correct at N as well, because an explicit mode changes the
+			-- quality cairo asks for and so forces it to build its own
+			-- properly scaled HFONT. `Antialias_subpixel' keeps ClearType,
+			-- so the workaround costs no quality.
+			--
+			-- It cannot be dodged by choosing sizes: cairo's font-face hash
+			-- table is keyed on face name, weight and italic and IGNORES
+			-- both the height and the HFONT, so the trap follows the FIRST
+			-- HFONT cairo saw for a family. See `shared_test_hfont' for the
+			-- lifetime rule that falls out of the same cache.
+			--
+			-- TRIPWIRE: if cairo is upgraded and this is fixed, the
+			-- "collapses" assertion below will fail. That failure is the
+			-- signal to re-read this note and relax the workaround; it is
+			-- not a regression in simple_cairo.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_font_face"
+		local
+			face: CAIRO_FONT_FACE
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			ids: ARRAY [NATURAL_32]
+			xs, ys: ARRAY [REAL_64]
+			e_default, e_explicit, e_double: CAIRO_TEXT_EXTENTS
+			gid: INTEGER
+		do
+				-- Its own family, so no other test's face can be in play.
+			face := cairo.font_face_for_hfont (shared_trap_hfont)
+			assert ("trap face valid", face.is_valid)
+			gid := c_glyph_id_for_char (shared_trap_hfont, ('H').code)
+			assert ("glyph id resolved", gid > 0 and gid /= 0xFFFF)
+			ids := <<gid.to_natural_32>>
+			xs := <<0.0>>
+			ys := <<0.0>>
+
+				-- Context A: antialias left at the default. The trap.
+			surface := cairo.create_surface (64, 64)
+			ctx := cairo.create_context (surface)
+			ctx.set_font_face (face).set_font_size (Test_pixel_size.to_double).do_nothing
+			e_default := ctx.glyph_extents (ids, xs, ys)
+			assert ("the trap is SILENT - no cairo error to catch", ctx.status = 0)
+			ctx.destroy
+			surface.destroy
+
+				-- Context B: an explicit mode, set before the face. The recipe.
+			surface := cairo.create_surface (64, 64)
+			ctx := cairo.create_context (surface)
+			ctx.set_font_antialias (ctx.Antialias_subpixel).do_nothing
+			ctx.set_font_face (face).set_font_size (Test_pixel_size.to_double).do_nothing
+			e_explicit := ctx.glyph_extents (ids, xs, ys)
+			e_double := ctx.set_font_size (2.0 * Test_pixel_size).glyph_extents (ids, xs, ys)
+			assert ("recipe leaves no error", ctx.status = 0)
+
+				-- A 16 px capital H is 8-14 px tall in any Latin face.
+			assert ("explicit antialias gives a real 16 px glyph",
+				e_explicit.height >= 8.0 and e_explicit.height <= 14.0)
+			assert ("default antialias collapses at same-N (TRIPWIRE)",
+				e_default.height < 4.0)
+			assert ("a size other than N is unaffected",
+				e_double.height > e_explicit.height * 1.5)
+
+			ctx.destroy
+			surface.destroy
+			face.destroy
+		end
+
+feature -- Phase D: Contract Violation Tests (S07)
+
+	test_set_font_face_rejects_invalid_face
+			-- An unusable face can never be installed. The precondition
+			-- catches it, so `show_glyphs' is never asked to paint through
+			-- one and the context is never driven into an error state.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.set_font_face"
+		local
+			surface: detachable CAIRO_SURFACE
+			ctx: detachable CAIRO_CONTEXT
+			face: detachable CAIRO_FONT_FACE
+			violated, done: BOOLEAN
+		do
+			if not done then
+				surface := cairo.create_surface (8, 8)
+				ctx := cairo.create_context (surface)
+				create face.make_for_hfont (default_pointer)
+				if attached ctx as c and then attached face as f then
+					c.set_font_face (f).do_nothing
+				end
+			end
+			assert ("invalid face rejected", violated)
+			if attached ctx as c then
+				assert ("context left unharmed", c.status = 0)
+				c.destroy
+			end
+			if attached face as f then
+				f.destroy
+			end
+			if attached surface as s then
+				s.destroy
+			end
+		rescue
+			violated := True
+			done := True
+			retry
+		end
+
+	test_show_glyphs_rejects_mismatched_counts
+			-- Three parallel arrays of different lengths would read past
+			-- the short one; the precondition refuses the run.
+		note
+			testing: "covers/{CAIRO_CONTEXT}.show_glyphs"
+		local
+			surface: detachable CAIRO_SURFACE
+			ctx: detachable CAIRO_CONTEXT
+			violated, done: BOOLEAN
+		do
+			if not done then
+				surface := cairo.create_surface (8, 8)
+				ctx := cairo.create_context (surface)
+				if attached ctx as c then
+					c.show_glyphs (<<{NATURAL_32} 3, {NATURAL_32} 4>>,
+						<<0.0>>, <<0.0>>).do_nothing
+				end
+			end
+			assert ("mismatched counts rejected", violated)
+			if attached ctx as c then
+				c.destroy
+			end
+			if attached surface as s then
+				s.destroy
+			end
+		rescue
+			violated := True
+			done := True
+			retry
+		end
+
+	test_glyph_array_rejects_negative_count
+			-- A negative run length is refused at creation.
+		note
+			testing: "covers/{CAIRO_GLYPH_ARRAY}.make"
+		local
+			g: detachable CAIRO_GLYPH_ARRAY
+			violated, done: BOOLEAN
+		do
+			if not done then
+				create g.make (-1)
+			end
+			assert ("negative count rejected", violated)
+			assert ("no array was made", g = Void)
+		rescue
+			violated := True
+			done := True
+			retry
+		end
+
+feature {NONE} -- Phase D: Glyph Test Support
+
+	Test_pixel_size: INTEGER = 16
+			-- The one size everything in these tests is shaped and drawn at.
+
+	Sample_text: STRING = "Hello"
+			-- Characters whose glyph ids the tests look up in the HFONT.
+
+	shared_test_logfontw: MANAGED_POINTER
+			-- The LOGFONTW `shared_test_hfont' was built from. Kept alive
+			-- because cairo may read through it later.
+		once
+			create Result.make (c_logfontw_size)
+			c_fill_logfontw (Result.item, Test_pixel_size)
+		end
+
+	shared_test_hfont: POINTER
+			-- ONE Segoe UI HFONT at `Test_pixel_size', shared by every test
+			-- here and DELIBERATELY NEVER DELETED.
+			--
+			-- Cairo's win32 font-face hash table is keyed on face name,
+			-- weight and italic - not on the HFONT and not on the height -
+			-- so a face cairo built from an HFONT outlives any one
+			-- CAIRO_FONT_FACE object and is handed back for every later
+			-- HFONT of the same family. DeleteObject on such an HFONT
+			-- leaves cairo holding a dangling GDI handle; the next paint
+			-- through it fails with CAIRO_STATUS_WIN32_GDI_ERROR (41),
+			-- which poisons the context AND the shared face for the rest of
+			-- the process. A real caller - a font registry - owes the same
+			-- duty: keep the HFONT alive as long as cairo might paint with
+			-- it, which in practice is the life of the process.
+		once
+			Result := c_create_font_indirect_w (shared_test_logfontw.item)
+		ensure
+			created: Result /= default_pointer
+		end
+
+	shared_trap_hfont: POINTER
+			-- A Consolas HFONT at `Test_pixel_size' for
+			-- `test_same_n_needs_explicit_antialias' alone: its own family,
+			-- so no other test's cached face can interfere. Never deleted,
+			-- for the reason given on `shared_test_hfont'.
+		local
+			lf: MANAGED_POINTER
+		once
+			create lf.make (c_logfontw_size)
+			c_fill_logfontw_consolas (lf.item, Test_pixel_size)
+			Result := c_create_font_indirect_w (lf.item)
+		ensure
+			created: Result /= default_pointer
+		end
+
+	surface_ink_count (a_surface: CAIRO_SURFACE): INTEGER
+			-- Non-white pixels over the whole surface.
+		require
+			valid: a_surface.is_valid
+		local
+			y: INTEGER
+		do
+			from
+				y := 0
+			until
+				y >= a_surface.height
+			loop
+				Result := Result + row_ink_count (a_surface, y)
+				y := y + 1
+			end
+		ensure
+			non_negative: Result >= 0
+		end
+
+feature {NONE} -- Phase D: Win32 font externals (test-local)
+
+	c_logfontw_size: INTEGER
+			-- sizeof (LOGFONTW); 92 on win64.
+		external "C inline use <windows.h>"
+		alias "return (int)sizeof(LOGFONTW);"
+		end
+
+	c_fill_logfontw (a_buf: POINTER; a_pixel_size: INTEGER)
+			-- Describe Segoe UI at `a_pixel_size' pixels into `a_buf'.
+			-- lfHeight is NEGATIVE: the GDI convention for character height
+			-- rather than cell height. Cairo ignores it when sizing (the
+			-- same-N rule); it is here so the HFONT itself shapes at N.
+		external "C inline use <windows.h>, <string.h>"
+		alias "LOGFONTW* lf = (LOGFONTW*)$a_buf;%
+			%memset(lf, 0, sizeof(LOGFONTW));%
+			%lf->lfHeight = -($a_pixel_size);%
+			%lf->lfWeight = FW_NORMAL;%
+			%lf->lfCharSet = DEFAULT_CHARSET;%
+			%lf->lfOutPrecision = OUT_TT_PRECIS;%
+			%lf->lfClipPrecision = CLIP_DEFAULT_PRECIS;%
+			%lf->lfQuality = DEFAULT_QUALITY;%
+			%lf->lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;%
+			%memcpy(lf->lfFaceName, L%"Segoe UI%", sizeof(L%"Segoe UI%"));"
+		end
+
+	c_fill_logfontw_consolas (a_buf: POINTER; a_pixel_size: INTEGER)
+			-- As `c_fill_logfontw', but Consolas.
+		external "C inline use <windows.h>, <string.h>"
+		alias "LOGFONTW* lf = (LOGFONTW*)$a_buf;%
+			%memset(lf, 0, sizeof(LOGFONTW));%
+			%lf->lfHeight = -($a_pixel_size);%
+			%lf->lfWeight = FW_NORMAL;%
+			%lf->lfCharSet = DEFAULT_CHARSET;%
+			%lf->lfOutPrecision = OUT_TT_PRECIS;%
+			%lf->lfClipPrecision = CLIP_DEFAULT_PRECIS;%
+			%lf->lfQuality = DEFAULT_QUALITY;%
+			%lf->lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;%
+			%memcpy(lf->lfFaceName, L%"Consolas%", sizeof(L%"Consolas%"));"
+		end
+
+	c_create_font_indirect_w (a_logfontw: POINTER): POINTER
+		external "C inline use <windows.h>"
+		alias "return (void*)CreateFontIndirectW((LOGFONTW*)$a_logfontw);"
+		end
+
+	c_glyph_id_for_char (a_hfont: POINTER; a_code: INTEGER): INTEGER
+			-- Physical glyph index of `a_code' in `a_hfont', through
+			-- GetGlyphIndicesW on a scratch memory DC. This is the id space
+			-- a Uniscribe or DirectWrite shaper emits and the space
+			-- cairo_glyph_t.index expects; -1 on failure, 0xFFFF when the
+			-- font has no glyph for the character.
+		external "C inline use <windows.h>"
+		alias "HDC dc; HGDIOBJ old; WORD gi; WCHAR ch; DWORD r;%
+			%dc = CreateCompatibleDC((HDC)0);%
+			%if (!dc) return -1;%
+			%old = SelectObject(dc, (HGDIOBJ)$a_hfont);%
+			%ch = (WCHAR)($a_code);%
+			%gi = 0;%
+			%r = GetGlyphIndicesW(dc, &ch, 1, &gi, GGI_MARK_NONEXISTING_GLYPHS);%
+			%SelectObject(dc, old);%
+			%DeleteDC(dc);%
+			%if (r == GDI_ERROR) return -1;%
+			%return (int)gi;"
+		end
+
 end

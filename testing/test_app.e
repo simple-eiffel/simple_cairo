@@ -119,6 +119,23 @@ feature {NONE} -- Test Execution
 			run_test (agent l_tests.test_svg_surface_writes_document, "test_svg_surface_writes_document")
 			run_test (agent l_tests.test_status_message_readable, "test_status_message_readable")
 			run_test (agent l_tests.test_cairo_version_reported, "test_cairo_version_reported")
+
+			-- Phase D: glyph API (S07)
+			run_test (agent l_tests.test_glyph_struct_layout, "test_glyph_struct_layout")
+			run_test (agent l_tests.test_glyph_array_roundtrip, "test_glyph_array_roundtrip")
+			run_test (agent l_tests.test_font_face_for_hfont, "test_font_face_for_hfont")
+			run_test (agent l_tests.test_font_face_for_logfontw_hfont, "test_font_face_for_logfontw_hfont")
+			run_test (agent l_tests.test_font_face_null_hfont_is_invalid, "test_font_face_null_hfont_is_invalid")
+			run_test (agent l_tests.test_show_glyphs_paints_ink, "test_show_glyphs_paints_ink")
+			run_test (agent l_tests.test_show_glyph_array_paints_ink, "test_show_glyph_array_paints_ink")
+			run_test (agent l_tests.test_glyph_extents_measures_run, "test_glyph_extents_measures_run")
+			run_test (agent l_tests.test_glyph_extents_empty_is_zero, "test_glyph_extents_empty_is_zero")
+			run_test (agent l_tests.test_show_glyphs_empty_is_noop, "test_show_glyphs_empty_is_noop")
+			run_test (agent l_tests.test_font_size_governs_not_logfont_height, "test_font_size_governs_not_logfont_height")
+			run_test (agent l_tests.test_same_n_needs_explicit_antialias, "test_same_n_needs_explicit_antialias")
+			run_test (agent l_tests.test_set_font_face_rejects_invalid_face, "test_set_font_face_rejects_invalid_face")
+			run_test (agent l_tests.test_show_glyphs_rejects_mismatched_counts, "test_show_glyphs_rejects_mismatched_counts")
+			run_test (agent l_tests.test_glyph_array_rejects_negative_count, "test_glyph_array_rejects_negative_count")
 		end
 
 	run_test (a_test: PROCEDURE; a_name: STRING)
