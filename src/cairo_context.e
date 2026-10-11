@@ -581,6 +581,20 @@ feature -- Text (Fluent API)
 			Result := Current
 		end
 
+	text_path (a_text: READABLE_STRING_GENERAL): like Current
+			-- Add the outlines of `a_text' at the current point to the path, to stroke and fill it
+			-- (outlined text: stroke the path wide in one colour, then fill it in another).
+			-- Supports full Unicode (UTF-8 encoded for Cairo).
+		require
+			valid: is_valid
+		local
+			l_text: C_STRING
+		do
+			create l_text.make (to_utf8 (a_text))
+			c_text_path (handle, l_text.item)
+			Result := Current
+		end
+
 	text_width (a_text: READABLE_STRING_GENERAL): REAL_64
 			-- Ink width of text. NOT the layout number - see `text_extents.x_advance'.
 		require
@@ -1185,6 +1199,11 @@ feature {NONE} -- C Externals
 	c_show_text (a_cr, a_text: POINTER)
 		external "C inline use %"simple_cairo.h%""
 		alias "sc_show_text((cairo_t*)$a_cr, (const char*)$a_text);"
+		end
+
+	c_text_path (a_cr, a_text: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "if ($a_cr && $a_text) cairo_text_path((cairo_t*)$a_cr, (const char*)$a_text);"
 		end
 
 	c_text_width (a_cr, a_text: POINTER): REAL_64
