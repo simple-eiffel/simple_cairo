@@ -49,6 +49,7 @@ feature {NONE} -- Test Execution
 			run_test (agent l_tests.test_gradient_drawing, "test_gradient_drawing")
 			run_test (agent l_tests.test_transforms, "test_transforms")
 			run_test (agent l_tests.test_text_drawing, "test_text_drawing")
+			run_test (agent l_tests.test_text_path_outlined, "test_text_path_outlined")
 			run_test (agent l_tests.test_text_metrics, "test_text_metrics")
 			run_test (agent l_tests.test_complex_path, "test_complex_path")
 			run_test (agent l_tests.test_rounded_rectangle, "test_rounded_rectangle")

@@ -239,8 +239,35 @@ feature -- Text Tests
 			surface.destroy
 		end
 
+	test_text_path_outlined
+			-- Outlined text: the letter's path stroked wide in black, then filled white; both colours
+			-- must be on the surface (neither appears unless the path was built).
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_path"
+		local
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			l_white, l_black: INTEGER
+		do
+			surface := cairo.create_surface (120, 100)
+			ctx := cairo.create_context (surface)
+			ctx.select_font ("Arial", ctx.Slant_normal, ctx.Weight_bold)
+			   .set_font_size (80.0)
+			   .move_to (10, 85)
+			   .text_path ("O").do_nothing
+			ctx.set_color_rgb (0, 0, 0).set_line_width (8).stroke_preserve.do_nothing
+			ctx.set_color_rgb (1, 1, 1).fill.do_nothing
+			surface.flush.do_nothing
+			l_white := pixels_of (surface, 0xFFFFFFFF)
+			l_black := pixels_of (surface, 0xFF000000)
+			assert ("white fill drawn: " + l_white.out, l_white > 50)
+			assert ("black outline drawn: " + l_black.out, l_black > 50)
+			ctx.destroy
+			surface.destroy
+		end
+
 	test_text_metrics
-			-- Test text measurement.
+			--Test text measurement.
 		note
 			testing: "covers/{CAIRO_CONTEXT}.text_width"
 			testing: "covers/{CAIRO_CONTEXT}.text_height"
@@ -2384,6 +2411,27 @@ feature {NONE} -- Phase D: Win32 font externals (test-local)
 			%DeleteDC(dc);%
 			%if (r == GDI_ERROR) return -1;%
 			%return (int)gi;"
+		end
+
+
+feature {NONE} -- Text path test support
+
+	pixels_of (a_surface: CAIRO_SURFACE; a_argb: NATURAL_32): INTEGER
+			-- Pixels of `a_surface' exactly equal to `a_argb' (premultiplied ARGB32 word).
+		do
+			Result := c_count_pixels (a_surface.data, a_surface.stride, a_surface.width, a_surface.height, a_argb)
+		end
+
+	c_count_pixels (a_data: POINTER; a_stride, a_w, a_h: INTEGER; a_argb: NATURAL_32): INTEGER
+		external "C inline"
+		alias "[
+			int x, y, n = 0;
+			for (y = 0; y < $a_h; y++) {
+				unsigned int *row = (unsigned int *) ((unsigned char *) $a_data + y * $a_stride);
+				for (x = 0; x < $a_w; x++) if (row[x] == (unsigned int) $a_argb) n++;
+			}
+			return n;
+		]"
 		end
 
 end

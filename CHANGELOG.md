@@ -23,6 +23,13 @@ All notable changes to simple_cairo will be documented in this file.
   SV_BLOCK_EDITOR spike (inline-C window + message pump, no Vision2;
   every pixel painted by simple_cairo, blitted via make_for_dc)
 
+## [1.4.0] - 2026-10-11
+
+### Added
+- `CAIRO_CONTEXT.text_path`: the outlines of a string as a path, to stroke and fill
+  (outlined text). Needed by simple_image for thumbnail and reel-cover titles. Test:
+  an outlined letter is stroked black and filled white, and both colours land.
+
 ## [1.3.0] - 2026-09-02
 
 ### Added (Phase D - S07: the glyph API, for simple_shaping)
