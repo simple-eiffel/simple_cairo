@@ -25,6 +25,54 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+/* ============ FONT LOCK (1.5.0) ============
+ *
+ * cairo 1.17.2's Windows font backend measures and outlines glyphs through
+ * ONE device context shared by the whole process (_get_global_font_dc), with
+ * no lock around it: two threads using fonts at once select fonts and world
+ * transforms into it under each other, and a context fails with
+ * "_win32_scaled_font_set_world_transform" (2026-10-11: simple_prompter's
+ * Publish drew its picture words on a SCOOP worker while the window measured
+ * its own text; the window's context failed and the program closed).
+ * LIB_TESTS.test_text_on_two_threads reproduces it.
+ *
+ * Every helper here that can make, use or drop a scaled font holds this lock.
+ * It is recursive (a critical section), set up on first use with an
+ * interlocked flag (ISE builds against the Windows 2000 headers, so no
+ * SRWLOCK_INIT). The data is SC_SHARED (selectany): one lock for the whole
+ * program, not a private copy per generated C file as a `static' would be. */
+#ifdef _WIN32
+#include <windows.h>
+#if defined(_MSC_VER)
+#define SC_SHARED __declspec(selectany)
+#else
+#define SC_SHARED __attribute__((selectany))
+#endif
+
+SC_SHARED CRITICAL_SECTION sc_font_section = {0};
+SC_SHARED volatile LONG sc_font_section_state = 0; /* 0 none, 1 being set up, 2 ready */
+
+static void sc_font_lock(void) {
+    if (sc_font_section_state != 2) {
+        if (InterlockedCompareExchange(&sc_font_section_state, 1, 0) == 0) {
+            InitializeCriticalSection(&sc_font_section);
+            InterlockedExchange(&sc_font_section_state, 2);
+        } else {
+            while (sc_font_section_state != 2) Sleep(0);
+        }
+    }
+    EnterCriticalSection(&sc_font_section);
+}
+
+static void sc_font_unlock(void) {
+    LeaveCriticalSection(&sc_font_section);
+}
+#else
+/* Other font backends (FreeType) are safe across threads in cairo. */
+static void sc_font_lock(void) {}
+static void sc_font_unlock(void) {}
+#endif
+
 /* ============ SURFACE MANAGEMENT ============ */
 
 /* Create an image surface with ARGB32 format */
@@ -144,9 +192,12 @@ static cairo_t* sc_context_create(cairo_surface_t* surface) {
     return surface ? cairo_create(surface) : NULL;
 }
 
-/* Destroy a context */
+/* Destroy a context (it may drop the last use of a scaled font: font lock) */
 static void sc_context_destroy(cairo_t* cr) {
-    if (cr) cairo_destroy(cr);
+    if (!cr) return;
+    sc_font_lock();
+    cairo_destroy(cr);
+    sc_font_unlock();
 }
 
 /* Check context status. Returns 0 if OK. */
@@ -159,9 +210,12 @@ static void sc_save(cairo_t* cr) {
     if (cr) cairo_save(cr);
 }
 
-/* Restore saved state */
+/* Restore saved state (it may drop a scaled font: font lock) */
 static void sc_restore(cairo_t* cr) {
-    if (cr) cairo_restore(cr);
+    if (!cr) return;
+    sc_font_lock();
+    cairo_restore(cr);
+    sc_font_unlock();
 }
 
 /* ============ COLOR & SOURCE ============ */
@@ -399,32 +453,52 @@ static void sc_select_font(cairo_t* cr, const char* family, int slant, int weigh
                            CAIRO_FONT_SLANT_NORMAL;
     cairo_font_weight_t w = (weight == 1) ? CAIRO_FONT_WEIGHT_BOLD :
                             CAIRO_FONT_WEIGHT_NORMAL;
+    sc_font_lock();
     cairo_select_font_face(cr, family, s, w);
+    sc_font_unlock();
 }
 
 /* Set font size */
 static void sc_set_font_size(cairo_t* cr, double size) {
-    if (cr) cairo_set_font_size(cr, size);
+    if (!cr) return;
+    sc_font_lock();
+    cairo_set_font_size(cr, size);
+    sc_font_unlock();
 }
 
 /* Draw text at current position */
 static void sc_show_text(cairo_t* cr, const char* text) {
-    if (cr && text) cairo_show_text(cr, text);
+    if (!cr || !text) return;
+    sc_font_lock();
+    cairo_show_text(cr, text);
+    sc_font_unlock();
+}
+
+/* Add text's outline to the path at the current position */
+static void sc_text_path(cairo_t* cr, const char* text) {
+    if (!cr || !text) return;
+    sc_font_lock();
+    cairo_text_path(cr, text);
+    sc_font_unlock();
 }
 
 /* Get text extents (returns width) */
 static double sc_text_width(cairo_t* cr, const char* text) {
-    if (!cr || !text) return 0;
     cairo_text_extents_t extents;
+    if (!cr || !text) return 0;
+    sc_font_lock();
     cairo_text_extents(cr, text, &extents);
+    sc_font_unlock();
     return extents.width;
 }
 
 /* Get text height */
 static double sc_text_height(cairo_t* cr, const char* text) {
-    if (!cr || !text) return 0;
     cairo_text_extents_t extents;
+    if (!cr || !text) return 0;
+    sc_font_lock();
     cairo_text_extents(cr, text, &extents);
+    sc_font_unlock();
     return extents.height;
 }
 
@@ -591,7 +665,9 @@ static void sc_text_extents(cairo_t* cr, const char* text, double* out6) {
     int i;
     if (out6) { for (i = 0; i < 6; i++) out6[i] = 0.0; }
     if (!cr || !text || !out6) return;
+    sc_font_lock();
     cairo_text_extents(cr, text, &e);
+    sc_font_unlock();
     out6[0] = e.x_bearing; out6[1] = e.y_bearing;
     out6[2] = e.width;     out6[3] = e.height;
     out6[4] = e.x_advance; out6[5] = e.y_advance;
@@ -603,7 +679,9 @@ static void sc_font_extents(cairo_t* cr, double* out5) {
     int i;
     if (out5) { for (i = 0; i < 5; i++) out5[i] = 0.0; }
     if (!cr || !out5) return;
+    sc_font_lock();
     cairo_font_extents(cr, &e);
+    sc_font_unlock();
     out5[0] = e.ascent; out5[1] = e.descent; out5[2] = e.height;
     out5[3] = e.max_x_advance; out5[4] = e.max_y_advance;
 }
@@ -620,7 +698,9 @@ static void sc_set_font_antialias(cairo_t* cr, int mode) {
     o = cairo_font_options_create();
     cairo_get_font_options(cr, o);
     cairo_font_options_set_antialias(o, (cairo_antialias_t)mode);
+    sc_font_lock();
     cairo_set_font_options(cr, o);
+    sc_font_unlock();
     cairo_font_options_destroy(o);
 }
 
@@ -631,7 +711,9 @@ static void sc_set_font_hint_style(cairo_t* cr, int style) {
     o = cairo_font_options_create();
     cairo_get_font_options(cr, o);
     cairo_font_options_set_hint_style(o, (cairo_hint_style_t)style);
+    sc_font_lock();
     cairo_set_font_options(cr, o);
+    sc_font_unlock();
     cairo_font_options_destroy(o);
 }
 
@@ -931,16 +1013,24 @@ static const char* sc_version_string(void) { return cairo_version_string(); }
    call with a handle GetObjectW cannot resolve. The Eiffel side then
    reports an invalid face instead of raising. */
 static cairo_font_face_t* sc_win32_face_for_hfont(void* hfont) {
-    return hfont ? cairo_win32_font_face_create_for_hfont((HFONT)hfont)
-                 : (cairo_font_face_t*)0;
+    cairo_font_face_t* f;
+    if (!hfont) return (cairo_font_face_t*)0;
+    sc_font_lock();
+    f = cairo_win32_font_face_create_for_hfont((HFONT)hfont);
+    sc_font_unlock();
+    return f;
 }
 
 /* Either argument may be null (cairo accepts logfont-only and
    hfont-only), but not both. */
 static cairo_font_face_t* sc_win32_face_for_logfontw_hfont(void* logfontw, void* hfont) {
+    cairo_font_face_t* f;
     if (!logfontw && !hfont) return (cairo_font_face_t*)0;
-    return cairo_win32_font_face_create_for_logfontw_hfont((LOGFONTW*)logfontw,
-                                                           (HFONT)hfont);
+    sc_font_lock();
+    f = cairo_win32_font_face_create_for_logfontw_hfont((LOGFONTW*)logfontw,
+                                                        (HFONT)hfont);
+    sc_font_unlock();
+    return f;
 }
 #else
 /* Stubs when the win32 font backend is not available. */
@@ -962,10 +1052,16 @@ static int sc_font_face_ref_count(cairo_font_face_t* f) {
     return f ? (int)cairo_font_face_get_reference_count(f) : 0;
 }
 static void sc_font_face_destroy(cairo_font_face_t* f) {
-    if (f) cairo_font_face_destroy(f);
+    if (!f) return;
+    sc_font_lock();
+    cairo_font_face_destroy(f);
+    sc_font_unlock();
 }
 static void sc_set_font_face(cairo_t* cr, cairo_font_face_t* f) {
-    if (cr && f) cairo_set_font_face(cr, f);
+    if (!cr || !f) return;
+    sc_font_lock();
+    cairo_set_font_face(cr, f);
+    sc_font_unlock();
 }
 
 /* cairo_glyph_t marshalling. The layout is REPORTED, never assumed. */
@@ -1003,7 +1099,9 @@ static double sc_glyph_y_at(void* base, int i) {
 /* An empty run is a no-op, never a cairo error. */
 static void sc_show_glyphs(cairo_t* cr, void* glyphs, int n) {
     if (!cr || !glyphs || n <= 0) return;
+    sc_font_lock();
     cairo_show_glyphs(cr, (const cairo_glyph_t*)glyphs, n);
+    sc_font_unlock();
 }
 
 /* out6 = x_bearing, y_bearing, width, height, x_advance, y_advance.
@@ -1013,7 +1111,9 @@ static void sc_glyph_extents(cairo_t* cr, void* glyphs, int n, double* out6) {
     if (!out6) return;
     memset(out6, 0, 6 * sizeof(double));
     if (!cr || !glyphs || n <= 0) return;
+    sc_font_lock();
     cairo_glyph_extents(cr, (const cairo_glyph_t*)glyphs, n, &e);
+    sc_font_unlock();
     out6[0] = e.x_bearing;
     out6[1] = e.y_bearing;
     out6[2] = e.width;
