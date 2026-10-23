@@ -23,6 +23,25 @@ All notable changes to simple_cairo will be documented in this file.
   SV_BLOCK_EDITOR spike (inline-C window + message pump, no Vision2;
   every pixel painted by simple_cairo, blitted via make_for_dc)
 
+## [1.5.0] - 2026-10-11
+
+### Fixed
+- Text on two threads at once. cairo 1.17.2's Windows font backend measures and outlines
+  glyphs through one device context shared by the whole process, with no lock; two SCOOP
+  processors using fonts together broke each other's contexts
+  (`_win32_scaled_font_set_world_transform`), and simple_prompter's window closed when
+  Publish drew its picture words on a worker. Every C helper that makes, uses or drops a
+  scaled font (select, size, show, path, extents, glyphs, font faces, options, restore,
+  destroy) now holds one process-wide lock (`SC_SHARED`, so not a copy per generated C file).
+  `CAIRO_CONTEXT.text_path` goes through the new `sc_text_path` helper.
+- The test target now runs SCOOP (`use="scoop"`); with `use="thread"` a `separate` call ran
+  in line and no two-processor test could fail.
+
+### Added
+- `test_text_on_two_threads` (with `CAIRO_TEXT_WORKER`): both processors draw text 4000
+  times at changing sizes, overlapping fully. Before the lock: failed on the first run and
+  hung on the second; after: five runs out of five pass.
+
 ## [1.4.0] - 2026-10-11
 
 ### Added

@@ -266,6 +266,39 @@ feature -- Text Tests
 			surface.destroy
 		end
 
+	test_text_on_two_threads
+			-- Text measured and shown here while another processor draws text of its own must
+			-- leave both contexts valid. (2026-10-11: simple_prompter's Publish drew its contact
+			-- sheet on a worker while the pill measured its text, and the pill's context failed.)
+		note
+			testing: "covers/{CAIRO_CONTEXT}.text_extents"
+		local
+			l_worker: separate CAIRO_TEXT_WORKER
+			surface: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			i: INTEGER
+			l_advance: REAL_64
+			l_started: INTEGER_64
+		do
+			create l_worker.make
+			start_worker (l_worker, Two_thread_rounds)
+			l_started := {CAIRO_TEXT_WORKER}.tick_ms
+			surface := cairo.create_surface (600, 120)
+			ctx := cairo.create_context (surface)
+			from i := 1 until i > Two_thread_rounds or not ctx.is_valid loop
+				ctx.select_font ("Segoe UI", ctx.Slant_normal, ctx.Weight_normal).set_font_size (10 + (i \\ 900) * 0.061).do_nothing
+				l_advance := l_advance + ctx.text_extents ("measured " + i.out).x_advance
+				ctx.move_to (5, 60).show_text ("shown " + i.out).do_nothing
+				i := i + 1
+			end
+			print ("    here " + l_started.out + " to " + {CAIRO_TEXT_WORKER}.tick_ms.out + "; worker " + worker_report (l_worker) + "%N")
+			assert ("this context is valid (status " + ctx.status.out + " after " + (i - 1).out + " rounds)", ctx.is_valid)
+			assert ("the worker's context is valid (" + worker_report (l_worker) + ")", worker_status (l_worker) = 0)
+			assert ("text was measured", l_advance > 0)
+			ctx.destroy
+			surface.destroy
+		end
+
 	test_text_metrics
 			--Test text measurement.
 		note
@@ -2413,6 +2446,34 @@ feature {NONE} -- Phase D: Win32 font externals (test-local)
 			%return (int)gi;"
 		end
 
+
+feature {NONE} -- Two-thread text test support
+
+	Two_thread_rounds: INTEGER = 4000
+			-- Rounds each processor draws in `test_text_on_two_threads'.
+
+	start_worker (a_worker: separate CAIRO_TEXT_WORKER; a_rounds: INTEGER)
+			-- Start `a_worker' drawing (it runs on while this processor goes on).
+		do
+			a_worker.run (a_rounds)
+		end
+
+	worker_status (a_worker: separate CAIRO_TEXT_WORKER): INTEGER
+			-- `a_worker''s final status, once it is done.
+		require
+			done: a_worker.is_done
+		do
+			Result := a_worker.final_status
+		end
+
+	worker_report (a_worker: separate CAIRO_TEXT_WORKER): STRING
+			-- `a_worker''s status and rounds, once it is done.
+		require
+			done: a_worker.is_done
+		do
+			Result := "status " + a_worker.final_status.out + " after " + a_worker.rounds_done.out + " rounds, "
+				+ a_worker.started_ms.out + " to " + a_worker.ended_ms.out
+		end
 
 feature {NONE} -- Text path test support
 

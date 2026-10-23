@@ -1203,7 +1203,7 @@ feature {NONE} -- C Externals
 
 	c_text_path (a_cr, a_text: POINTER)
 		external "C inline use %"simple_cairo.h%""
-		alias "if ($a_cr && $a_text) cairo_text_path((cairo_t*)$a_cr, (const char*)$a_text);"
+		alias "sc_text_path((cairo_t*)$a_cr, (const char*)$a_text);"
 		end
 
 	c_text_width (a_cr, a_text: POINTER): REAL_64
