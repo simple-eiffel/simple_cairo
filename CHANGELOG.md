@@ -2,6 +2,18 @@
 
 All notable changes to simple_cairo will be documented in this file.
 
+## [1.6.0] - 2026-10-25
+
+### Added (printing, for simple_bible GW-20)
+- `CAIRO_SURFACE.make_for_printer_dc`: cairo's Windows printing surface on a
+  printer (or metafile) device context - vector output in the DC's units.
+  The caller owns the DC and its StartDoc/StartPage; destroy the surface
+  before EndDoc.
+- `CAIRO_CONTEXT.show_page`: emit the page and start the next on any paged
+  surface (PDF, printing); `CAIRO_PDF_SURFACE.show_page` remains.
+- Test `test_printing_surface_records_vector_pages` (two pages into an
+  in-memory enhanced metafile become GDI records). 90 pass.
+
 ## [Unreleased] - Phase C in progress
 
 ### Added (C2/D1 - the get-ahead sprint)

@@ -850,6 +850,14 @@ static void sc_mesh_set_control_point(cairo_pattern_t* p, unsigned int point, do
 static cairo_surface_t* sc_win32_surface_create(void* hdc) {
     return hdc ? cairo_win32_surface_create((HDC)hdc) : (cairo_surface_t*)0;
 }
+
+/* 1.6.0 (simple_bible GW-20): a cairo surface that PRINTS onto a printer
+   (or metafile) device context - vector output, in the DC's own units, one
+   page per cairo_show_page. The caller owns the HDC and its StartDoc /
+   StartPage; destroy the surface before EndDoc. */
+static cairo_surface_t* sc_win32_printing_surface_create(void* hdc) {
+    return hdc ? cairo_win32_printing_surface_create((HDC)hdc) : (cairo_surface_t*)0;
+}
 #endif
 
 /* ============ GET-AHEAD SPRINT (S10 C2/D1) ============ */

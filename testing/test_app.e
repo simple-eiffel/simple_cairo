@@ -138,6 +138,7 @@ feature {NONE} -- Test Execution
 			run_test (agent l_tests.test_set_font_face_rejects_invalid_face, "test_set_font_face_rejects_invalid_face")
 			run_test (agent l_tests.test_show_glyphs_rejects_mismatched_counts, "test_show_glyphs_rejects_mismatched_counts")
 			run_test (agent l_tests.test_glyph_array_rejects_negative_count, "test_glyph_array_rejects_negative_count")
+			run_test (agent l_tests.test_printing_surface_records_vector_pages, "test_printing_surface_records_vector_pages")
 		end
 
 	run_test (a_test: PROCEDURE; a_name: STRING)

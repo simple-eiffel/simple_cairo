@@ -29,6 +29,7 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 - **Transforms** - Translate, scale, rotate
 - **Waveforms** - Audio visualization for speech applications
 - **PNG Export** - Save surfaces to PNG files
+- **Printing** - `CAIRO_SURFACE.make_for_printer_dc` prints vector pages onto a Windows printer device context; `CAIRO_CONTEXT.show_page` ends a page (1.6.0)
 
 ## Installation
 

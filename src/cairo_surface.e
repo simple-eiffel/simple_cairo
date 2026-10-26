@@ -23,7 +23,7 @@ class
 	CAIRO_SURFACE
 
 create
-	make, make_with_format, make_from_handle, make_for_dc, make_from_png, make_similar
+	make, make_with_format, make_from_handle, make_for_dc, make_for_printer_dc, make_from_png, make_similar
 
 feature {NONE} -- Initialization
 
@@ -58,6 +58,19 @@ feature {NONE} -- Initialization
 			dc_not_null: a_hdc /= default_pointer
 		do
 			handle := c_win32_surface_create (a_hdc)
+		ensure
+			owned: not is_shared
+		end
+
+	make_for_printer_dc (a_hdc: POINTER)
+			-- 1.6.0: a surface that PRINTS onto a printer (or metafile) device
+			-- context: vector output in the DC's units, a page per
+			-- `CAIRO_CONTEXT.show_page'. The caller owns the DC and its
+			-- StartDoc/StartPage/EndPage; destroy this surface before EndDoc.
+		require
+			dc_not_null: a_hdc /= default_pointer
+		do
+			handle := c_win32_printing_surface_create (a_hdc)
 		ensure
 			owned: not is_shared
 		end
@@ -357,6 +370,11 @@ feature {NONE} -- C Externals
 	c_win32_surface_create (a_hdc: POINTER): POINTER
 		external "C inline use %"simple_cairo.h%""
 		alias "return sc_win32_surface_create($a_hdc);"
+		end
+
+	c_win32_printing_surface_create (a_hdc: POINTER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return sc_win32_printing_surface_create($a_hdc);"
 		end
 
 	c_surface_from_png (a_path: POINTER): POINTER
