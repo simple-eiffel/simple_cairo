@@ -2475,6 +2475,65 @@ feature {NONE} -- Two-thread text test support
 				+ a_worker.started_ms.out + " to " + a_worker.ended_ms.out
 		end
 
+feature -- Printing surface (1.6.0)
+
+	test_printing_surface_records_vector_pages
+			-- The Windows printing surface on an in-memory enhanced metafile
+			-- (a printing DC cairo documents as valid): two filled pages land
+			-- in the metafile as GDI records, more than an empty one's two.
+		local
+			l_dc, l_emf: POINTER
+			l_surface: CAIRO_SURFACE
+			l_ctx: CAIRO_CONTEXT
+			l_records: INTEGER
+		do
+			l_dc := c_new_emf_dc
+			assert ("a metafile DC", l_dc /= default_pointer)
+			create l_surface.make_for_printer_dc (l_dc)
+			assert ("a printing surface", l_surface.is_valid)
+			create l_ctx.make (l_surface)
+			l_ctx.set_color_rgb (0.1, 0.2, 0.6).do_nothing
+			l_ctx.rectangle (72.0, 72.0, 200.0, 100.0).do_nothing
+			l_ctx.fill.do_nothing
+			l_ctx.show_page
+			l_ctx.rectangle (100.0, 100.0, 50.0, 50.0).do_nothing
+			l_ctx.fill.do_nothing
+			l_ctx.show_page
+			l_ctx.destroy
+			l_surface.destroy
+			l_emf := c_close_emf (l_dc)
+			assert ("the metafile closed", l_emf /= default_pointer)
+			l_records := c_emf_record_count (l_emf)
+			c_delete_emf (l_emf)
+			assert ("drawing became records: " + l_records.out, l_records > 2)
+		end
+
+feature {NONE} -- Printing surface test support
+
+	c_new_emf_dc: POINTER
+		external "C inline use <windows.h>"
+		alias "return (EIF_POINTER)CreateEnhMetaFileW(NULL, NULL, NULL, NULL);"
+		end
+
+	c_close_emf (a_dc: POINTER): POINTER
+		external "C inline use <windows.h>"
+		alias "return (EIF_POINTER)CloseEnhMetaFile((HDC)$a_dc);"
+		end
+
+	c_emf_record_count (a_emf: POINTER): INTEGER
+		external "C inline use <windows.h>"
+		alias "[
+			ENHMETAHEADER l_h;
+			if (GetEnhMetaFileHeader((HENHMETAFILE)$a_emf, sizeof(l_h), &l_h) == 0) return 0;
+			return (EIF_INTEGER)l_h.nRecords;
+		]"
+		end
+
+	c_delete_emf (a_emf: POINTER)
+		external "C inline use <windows.h>"
+		alias "DeleteEnhMetaFile((HENHMETAFILE)$a_emf);"
+		end
+
 feature {NONE} -- Text path test support
 
 	pixels_of (a_surface: CAIRO_SURFACE; a_argb: NATURAL_32): INTEGER

@@ -1362,6 +1362,24 @@ feature {NONE} -- C Externals
 		alias "sc_glyph_extents((cairo_t*)$a_cr, $a_glyphs, $a_count, (double*)$a_out);"
 		end
 
+feature -- Pages (1.6.0)
+
+	show_page
+			-- Emit the current page and start the next, on any paged surface
+			-- (PDF, the Windows printing surface). Images ignore it.
+		require
+			valid: is_valid
+		do
+			c_show_page (handle)
+		end
+
+feature {NONE} -- Page externals
+
+	c_show_page (a_cr: POINTER)
+		external "C inline use %"simple_cairo.h%""
+		alias "cairo_show_page((cairo_t*)$a_cr);"
+		end
+
 invariant
 	surface_attached: surface /= Void
 	group_depth_non_negative: group_depth >= 0
