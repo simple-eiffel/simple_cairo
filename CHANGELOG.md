@@ -2,6 +2,21 @@
 
 All notable changes to simple_cairo will be documented in this file.
 
+## Known defect (found 2026-10-25): the shipped cairo.dll cannot write PDF
+
+The bundled cairo.dll (cairo 1.17.2, statically linked, imports only GDI32,
+MSIMG32, USER32 and KERNEL32) fails `cairo_show_page` on a PDF surface with
+CAIRO_STATUS_NO_MEMORY (1) on the FIRST page, even for one filled
+rectangle: reproduced through `CAIRO_PDF_SURFACE`, through a raw
+`cairo_pdf_surface_create` in C, through `cairo_pdf_surface_create_for_stream`
+with a byte-counting callback (so not file I/O), and with the version
+restricted to PDF 1.4. The output is a broken 507-byte file. That status is
+what cairo's deflate stream returns when zlib will not initialise, so the
+DLL's built-in zlib is the likely cause; it needs a rebuilt cairo.dll.
+`CAIRO_PDF_SURFACE` was never covered by a test here. The Windows printing
+surface (1.6.0) is not affected. simple_widgets' print jobs fall back to the
+Windows "Microsoft Print to PDF" printer until the DLL is replaced.
+
 ## [1.6.0] - 2026-10-25
 
 ### Added (printing, for simple_bible GW-20)
