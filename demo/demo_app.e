@@ -110,7 +110,13 @@ feature {NONE} -- Fonts
 			dir: STRING_32
 			n: INTEGER
 		do
-			dir := {STRING_32} "D:\prod\simple_narrate\docs\_artwork\src\_fonts\"
+				-- the vendored faces in simple_narrate, found through SIMPLE_EIFFEL (the libraries' root)
+				-- rather than a machine's own path (2026-11-01: the privacy rule for public repositories)
+			if attached (create {EXECUTION_ENVIRONMENT}).item ("SIMPLE_EIFFEL") as al_root then
+				dir := al_root.to_string_32 + {STRING_32} "\simple_narrate\docs\_artwork\src\_fonts\"
+			else
+				dir := {STRING_32} "simple_narrate\docs\_artwork\src\_fonts\"
+			end
 			n := 0
 			if add_font (dir + {STRING_32} "Archivo.ttf") then
 				n := n + 1
