@@ -17,6 +17,17 @@ DLL's built-in zlib is the likely cause; it needs a rebuilt cairo.dll.
 surface (1.6.0) is not affected. simple_widgets' print jobs fall back to the
 Windows "Microsoft Print to PDF" printer until the DLL is replaced.
 
+## [1.7.0] - 2026-11-01
+
+### Added
+
+- `CAIRO_SURFACE.make_from_png_data`: a PNG decoded from bytes in memory (cairo's PNG stream reader over a buffer on the caller's stack), for pictures kept in a database (simple_bible's meme tool). Test `test_png_from_bytes`.
+
+### Fixed
+
+- A PNG that does not decode (a broken one, or a missing file through `make_from_png`) left cairo's error surface in `handle`, breaking the class invariant (`not is_valid implies handle = default_pointer`). `adopt_decoded` destroys the error surface, so the surface is simply not valid. Seen failing first on the bytes path.
+- The test runner prints why a test failed (the exception's meaning).
+
 ## [1.6.0] - 2026-10-25
 
 ### Added (printing, for simple_bible GW-20)

@@ -1716,6 +1716,44 @@ feature -- Get-Ahead Sprint Tests (S10 C2/D1)
 			a.destroy
 		end
 
+	test_png_from_bytes
+			-- 1.7.0: a PNG decoded from bytes in memory reads as the file did; broken bytes give a
+			-- surface that is not valid, never a crash.
+		note
+			testing: "covers/{CAIRO_SURFACE}.make_from_png_data"
+		local
+			a, b, c: CAIRO_SURFACE
+			ctx: CAIRO_CONTEXT
+			l_file: RAW_FILE
+			l_bytes, l_broken: MANAGED_POINTER
+		do
+			a := cairo.create_surface (12, 12)
+			ctx := cairo.create_context (a)
+			ctx.set_color_rgb (1.0, 0.0, 0.0).paint.do_nothing
+			ctx.set_color_rgb (0.0, 0.0, 1.0).fill_rect (6.0, 0.0, 6.0, 12.0).do_nothing
+			ctx.destroy
+			a.flush.do_nothing
+			assert ("wrote", a.write_png ("bytes_probe.png"))
+			create l_file.make_open_read ("bytes_probe.png")
+			create l_bytes.make (l_file.count)
+			l_file.read_to_managed_pointer (l_bytes, 0, l_file.count)
+			l_file.close
+			create b.make_from_png_data (l_bytes)
+			assert ("read valid", b.is_valid)
+			assert ("width kept", b.width = 12 and b.height = 12)
+			assert ("left pixel kept", pixel (b, 2, 6) = Red_pixel)
+			assert ("right pixel kept", pixel (b, 9, 6) = Blue_pixel)
+			create l_broken.make (40)
+			l_broken.item.memory_copy (l_bytes.item, 40)
+			create c.make_from_png_data (l_broken)
+			assert ("a cut-off PNG is not valid, and holds no handle", not c.is_valid)
+			create c.make_from_png ("no_such_file.png")
+			assert ("nor is a missing file", not c.is_valid)
+			c.destroy
+			b.destroy
+			a.destroy
+		end
+
 	test_similar_surface
 		note
 			testing: "covers/{CAIRO_SURFACE}.make_similar"

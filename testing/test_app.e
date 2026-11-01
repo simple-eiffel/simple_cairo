@@ -116,6 +116,7 @@ feature {NONE} -- Test Execution
 			run_test (agent l_tests.test_matrix_singular_refuses, "test_matrix_singular_refuses")
 			run_test (agent l_tests.test_context_matrix_roundtrip, "test_context_matrix_roundtrip")
 			run_test (agent l_tests.test_png_write_read_roundtrip, "test_png_write_read_roundtrip")
+			run_test (agent l_tests.test_png_from_bytes, "test_png_from_bytes")
 			run_test (agent l_tests.test_similar_surface, "test_similar_surface")
 			run_test (agent l_tests.test_device_offset_roundtrip, "test_device_offset_roundtrip")
 			run_test (agent l_tests.test_svg_surface_writes_document, "test_svg_surface_writes_document")
@@ -152,7 +153,11 @@ feature {NONE} -- Test Execution
 				passed := passed + 1
 			end
 		rescue
-			print ("  FAIL: " + a_name + "%N")
+			if attached (create {EXCEPTIONS}).meaning ((create {EXCEPTIONS}).exception) as al_meaning then
+				print ("  FAIL: " + a_name + " [" + al_meaning + "]%N")
+			else
+				print ("  FAIL: " + a_name + "%N")
+			end
 			failed := failed + 1
 			l_rescued := True
 			retry
