@@ -951,6 +951,22 @@ static void sc_device_to_user(cairo_t* cr, double* xy) {
 static cairo_surface_t* sc_surface_from_png(const char* path) {
     return path ? cairo_image_surface_create_from_png(path) : (cairo_surface_t*)0;
 }
+/* A PNG decoded from bytes in memory (1.7.0: a picture kept in a database). cairo reads
+ * through a callback; the buffer and its position live on the caller's stack. */
+typedef struct { const unsigned char* data; unsigned int size; unsigned int at; } sc_png_buffer;
+static cairo_status_t sc_png_read(void* closure, unsigned char* out, unsigned int length) {
+    sc_png_buffer* b = (sc_png_buffer*)closure;
+    if (length > b->size - b->at) return CAIRO_STATUS_READ_ERROR;
+    memcpy(out, b->data + b->at, length);
+    b->at += length;
+    return CAIRO_STATUS_SUCCESS;
+}
+static cairo_surface_t* sc_surface_from_png_data(const unsigned char* data, int size) {
+    sc_png_buffer b;
+    if (!data || size <= 0) return (cairo_surface_t*)0;
+    b.data = data; b.size = (unsigned int)size; b.at = 0;
+    return cairo_image_surface_create_from_png_stream(sc_png_read, &b);
+}
 static cairo_surface_t* sc_surface_similar(cairo_surface_t* other, int content, int w, int h) {
     return other ? cairo_surface_create_similar(other, (cairo_content_t)content, w, h) : (cairo_surface_t*)0;
 }

@@ -23,7 +23,7 @@ class
 	CAIRO_SURFACE
 
 create
-	make, make_with_format, make_from_handle, make_for_dc, make_for_printer_dc, make_from_png, make_similar
+	make, make_with_format, make_from_handle, make_for_dc, make_for_printer_dc, make_from_png, make_from_png_data, make_similar
 
 feature {NONE} -- Initialization
 
@@ -83,7 +83,16 @@ feature {NONE} -- Initialization
 			s: C_STRING
 		do
 			create s.make (a_path.to_string_8)
-			handle := c_surface_from_png (s.item)
+			adopt_decoded (c_surface_from_png (s.item))
+		end
+
+	make_from_png_data (a_bytes: MANAGED_POINTER)
+			-- Decode the PNG held in `a_bytes' into a new image surface (1.7.0: a picture kept in a
+			-- database, never written to a file). A broken PNG gives a surface that is not valid.
+		require
+			has_bytes: a_bytes.count > 0
+		do
+			adopt_decoded (c_surface_from_png_data (a_bytes.item, a_bytes.count))
 		end
 
 	make_similar (a_other: CAIRO_SURFACE; a_content, a_width, a_height: INTEGER)
@@ -375,6 +384,26 @@ feature {NONE} -- C Externals
 	c_win32_printing_surface_create (a_hdc: POINTER): POINTER
 		external "C inline use %"simple_cairo.h%""
 		alias "return sc_win32_printing_surface_create($a_hdc);"
+		end
+
+	adopt_decoded (a_handle: POINTER)
+			-- Keep the surface a PNG decoded into; cairo's error surface for a missing or broken PNG is
+			-- destroyed, so this surface is not valid and holds no handle (the class invariant: before
+			-- 1.7.0 a bad PNG file broke it).
+		do
+			if a_handle /= default_pointer and then c_surface_status (a_handle) /= 0 then
+				c_surface_destroy (a_handle)
+				handle := default_pointer
+			else
+				handle := a_handle
+			end
+		ensure
+			valid_or_empty: is_valid or handle = default_pointer
+		end
+
+	c_surface_from_png_data (a_data: POINTER; a_size: INTEGER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return sc_surface_from_png_data((const unsigned char*)$a_data, (int)$a_size);"
 		end
 
 	c_surface_from_png (a_path: POINTER): POINTER
