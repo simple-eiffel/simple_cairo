@@ -858,6 +858,17 @@ static cairo_surface_t* sc_win32_surface_create(void* hdc) {
 static cairo_surface_t* sc_win32_printing_surface_create(void* hdc) {
     return hdc ? cairo_win32_printing_surface_create((HDC)hdc) : (cairo_surface_t*)0;
 }
+#else
+/* Off Windows there is no device context: a window's shell hands over a cairo
+   surface in its place (simple_eif_phone's android_shell). No printing. */
+static cairo_surface_t* sc_win32_surface_create(void* surface) {
+    return surface ? cairo_surface_reference((cairo_surface_t*)surface) : (cairo_surface_t*)0;
+}
+
+static cairo_surface_t* sc_win32_printing_surface_create(void* hdc) {
+    (void)hdc;
+    return (cairo_surface_t*)0;
+}
 #endif
 
 /* ============ GET-AHEAD SPRINT (S10 C2/D1) ============ */
@@ -1057,10 +1068,10 @@ static cairo_font_face_t* sc_win32_face_for_logfontw_hfont(void* logfontw, void*
     return f;
 }
 #else
-/* Stubs when the win32 font backend is not available. */
+/* Off Windows there is no HFONT: a font library hands over a cairo font face in
+   its place (simple_eif_phone's android_shaping). */
 static cairo_font_face_t* sc_win32_face_for_hfont(void* hfont) {
-    (void)hfont;
-    return (cairo_font_face_t*)0;
+    return hfont ? cairo_font_face_reference((cairo_font_face_t*)hfont) : (cairo_font_face_t*)0;
 }
 static cairo_font_face_t* sc_win32_face_for_logfontw_hfont(void* logfontw, void* hfont) {
     (void)logfontw; (void)hfont;
