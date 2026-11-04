@@ -1738,6 +1738,7 @@ feature -- Get-Ahead Sprint Tests (S10 C2/D1)
 			create l_bytes.make (l_file.count)
 			l_file.read_to_managed_pointer (l_bytes, 0, l_file.count)
 			l_file.close
+			l_file.delete
 			create b.make_from_png_data (l_bytes)
 			assert ("read valid", b.is_valid)
 			assert ("width kept", b.width = 12 and b.height = 12)
