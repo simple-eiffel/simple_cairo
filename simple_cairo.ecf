@@ -22,6 +22,16 @@
 				<platform value="windows"/>
 			</condition>
 		</external_object>
+		<external_linker_flag value="-L/opt/homebrew/lib -lcairo">
+			<condition>
+				<platform value="macintosh"/>
+			</condition>
+		</external_linker_flag>
+		<external_linker_flag value="-lcairo">
+			<condition>
+				<platform value="unix"/>
+			</condition>
+		</external_linker_flag>
 		<library name="base" location="$ISE_LIBRARY\library\base\base.ecf"/>
 		<cluster name="src" location=".\src\" recursive="true"/>
 	</target>
@@ -37,7 +47,21 @@
 		</capability>
 		<library name="simple_testing" location="$SIMPLE_EIFFEL/simple_testing/simple_testing.ecf"/>
 		<library name="testing" location="$ISE_LIBRARY\library\testing\testing.ecf"/>
-		<cluster name="tests" location=".\testing\" recursive="true"/>
+		<cluster name="tests" location=".\testing\" recursive="true">
+			<file_rule>
+				<exclude>/platform$</exclude>
+			</file_rule>
+		</cluster>
+		<cluster name="tests_windows" location=".\testing\platform\windows">
+			<condition>
+				<platform value="windows"/>
+			</condition>
+		</cluster>
+		<cluster name="tests_posix" location=".\testing\platform\posix">
+			<condition>
+				<platform excluded_value="windows"/>
+			</condition>
+		</cluster>
 	</target>
 	<target name="simple_cairo_demo" extends="simple_cairo">
 		<root class="DEMO_APP" feature="make"/>

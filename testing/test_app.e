@@ -107,7 +107,9 @@ feature {NONE} -- Test Execution
 			run_test (agent l_tests.test_pattern_extend_rejects_unknown, "test_pattern_extend_rejects_unknown")
 
 			-- Phase C-1 (S10)
-			run_test (agent l_tests.test_win32_surface_for_screen_dc, "test_win32_surface_for_screen_dc")
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_win32_surface_for_screen_dc, "test_win32_surface_for_screen_dc")
+			end
 
 			-- Get-ahead sprint (S10 C2/D1)
 			run_test (agent l_tests.test_matrix_identity_and_translate, "test_matrix_identity_and_translate")
@@ -126,20 +128,36 @@ feature {NONE} -- Test Execution
 			-- Phase D: glyph API (S07)
 			run_test (agent l_tests.test_glyph_struct_layout, "test_glyph_struct_layout")
 			run_test (agent l_tests.test_glyph_array_roundtrip, "test_glyph_array_roundtrip")
-			run_test (agent l_tests.test_font_face_for_hfont, "test_font_face_for_hfont")
-			run_test (agent l_tests.test_font_face_for_logfontw_hfont, "test_font_face_for_logfontw_hfont")
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_font_face_for_hfont, "test_font_face_for_hfont")
+			end
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_font_face_for_logfontw_hfont, "test_font_face_for_logfontw_hfont")
+			end
 			run_test (agent l_tests.test_font_face_null_hfont_is_invalid, "test_font_face_null_hfont_is_invalid")
-			run_test (agent l_tests.test_show_glyphs_paints_ink, "test_show_glyphs_paints_ink")
-			run_test (agent l_tests.test_show_glyph_array_paints_ink, "test_show_glyph_array_paints_ink")
-			run_test (agent l_tests.test_glyph_extents_measures_run, "test_glyph_extents_measures_run")
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_show_glyphs_paints_ink, "test_show_glyphs_paints_ink")
+			end
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_show_glyph_array_paints_ink, "test_show_glyph_array_paints_ink")
+			end
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_glyph_extents_measures_run, "test_glyph_extents_measures_run")
+			end
 			run_test (agent l_tests.test_glyph_extents_empty_is_zero, "test_glyph_extents_empty_is_zero")
 			run_test (agent l_tests.test_show_glyphs_empty_is_noop, "test_show_glyphs_empty_is_noop")
-			run_test (agent l_tests.test_font_size_governs_not_logfont_height, "test_font_size_governs_not_logfont_height")
-			run_test (agent l_tests.test_same_n_needs_explicit_antialias, "test_same_n_needs_explicit_antialias")
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_font_size_governs_not_logfont_height, "test_font_size_governs_not_logfont_height")
+			end
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_same_n_needs_explicit_antialias, "test_same_n_needs_explicit_antialias")
+			end
 			run_test (agent l_tests.test_set_font_face_rejects_invalid_face, "test_set_font_face_rejects_invalid_face")
 			run_test (agent l_tests.test_show_glyphs_rejects_mismatched_counts, "test_show_glyphs_rejects_mismatched_counts")
 			run_test (agent l_tests.test_glyph_array_rejects_negative_count, "test_glyph_array_rejects_negative_count")
-			run_test (agent l_tests.test_printing_surface_records_vector_pages, "test_printing_surface_records_vector_pages")
+			if {PLATFORM}.is_windows then
+				run_test (agent l_tests.test_printing_surface_records_vector_pages, "test_printing_surface_records_vector_pages")
+			end
 		end
 
 	run_test (a_test: PROCEDURE; a_name: STRING)
