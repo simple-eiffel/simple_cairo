@@ -66,11 +66,11 @@ feature -- Work
 feature -- Clock
 
 	tick_ms: INTEGER_64
-			-- Milliseconds since the computer started.
+			-- A millisecond clock; only differences are used.
 		external
-			"C inline use <windows.h>"
+			"C inline use <time.h>"
 		alias
-			"return (EIF_INTEGER_64) GetTickCount64();"
+			"struct timespec t; timespec_get (&t, TIME_UTC); return (EIF_INTEGER_64) t.tv_sec * 1000 + t.tv_nsec / 1000000;"
 		end
 
 end
