@@ -860,14 +860,15 @@ static cairo_surface_t* sc_win32_printing_surface_create(void* hdc) {
 }
 #else
 /* Off Windows there is no device context: a window's shell hands over a cairo
-   surface in its place (simple_eif_phone's android_shell). No printing. */
+   surface in its place (simple_eif_phone's android_shell), and so does its printing: on
+   macOS simple_shell's printer "DC" is a cairo PDF surface, one per document, which each
+   page references and draws into (its show_page adds a page). */
 static cairo_surface_t* sc_win32_surface_create(void* surface) {
     return surface ? cairo_surface_reference((cairo_surface_t*)surface) : (cairo_surface_t*)0;
 }
 
-static cairo_surface_t* sc_win32_printing_surface_create(void* hdc) {
-    (void)hdc;
-    return (cairo_surface_t*)0;
+static cairo_surface_t* sc_win32_printing_surface_create(void* surface) {
+    return surface ? cairo_surface_reference((cairo_surface_t*)surface) : (cairo_surface_t*)0;
 }
 #endif
 
