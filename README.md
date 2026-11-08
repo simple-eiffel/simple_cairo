@@ -38,9 +38,7 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 
 #### Windows
 
-1. Download Cairo from [GTK+ for Windows](https://www.gtk.org/docs/installations/windows/) or build from source
-2. Set `CAIRO_PATH` environment variable to your Cairo installation directory
-3. Ensure `cairo.dll` is in your PATH or application directory
+Nothing to install: the repository carries Cairo 1.17.2 for x64 Windows (`cairo.dll` at the root, `lib/cairo.lib`). It's self-contained, with no other DLLs, and licensed LGPL 2.1 or MPL 1.1. See [lib/README.md](lib/README.md). Copy `cairo.dll` beside your application's executable. That DLL can't write PDF (see CHANGELOG.md); every other surface works.
 
 #### Linux
 

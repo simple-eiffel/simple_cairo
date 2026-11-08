@@ -24,7 +24,13 @@ Documentation/
 .DS_Store
 Thumbs.db
 
-lib/
+lib/*
+
+# Bundled Cairo for Windows (lib/README.md says where it came from)
+!/cairo.dll
+!/lib/cairo.lib
+!/lib/README.md
+!/lib/cairo-COPYING*
 *.epr
 *.log
 
