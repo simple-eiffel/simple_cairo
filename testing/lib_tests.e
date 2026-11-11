@@ -67,6 +67,58 @@ feature -- Surface Tests
 			surface.destroy
 		end
 
+feature -- The bundled build (BUILD_STANDARDS section 9)
+
+	test_loaded_cairo_is_the_fleet_build
+			-- The cairo that loads at run time is the fleet's: on Windows exactly the 1.18.0
+			-- in runtime/windows (one version per DLL name, Larry, 2026-11-11); on Linux and
+			-- macOS the system's, of the 1.18 series.
+		note
+			testing: "covers/{SIMPLE_CAIRO}.cairo_version"
+		do
+			if {PLATFORM}.is_windows then
+				assert ("the bundled 1.18.0 loaded: " + cairo.cairo_version.to_string_8, cairo.cairo_version.same_string ("1.18.0"))
+			else
+				assert ("a 1.18 cairo: " + cairo.cairo_version.to_string_8, cairo.cairo_version.starts_with ("1.18."))
+			end
+		end
+
+	test_pdf_keeps_its_pages
+			-- A PDF of two pages: the context stays healthy past each page. (cairo 1.17.2's
+			-- Windows build failed here with CAIRO_STATUS_NO_MEMORY at the first page.)
+		note
+			testing: "covers/{CAIRO_PDF_SURFACE}.make"
+		local
+			l_surface: CAIRO_PDF_SURFACE
+			l_context: CAIRO_CONTEXT
+			l_path: STRING_32
+			l_file: RAW_FILE
+			l_env: EXECUTION_ENVIRONMENT
+		do
+			create l_env
+			if attached l_env.item ("TEMP") as al_t then
+				l_path := al_t + "\simple_cairo_two_pages.pdf"
+			elseif attached l_env.item ("TMPDIR") as al_t then
+				l_path := al_t + "/simple_cairo_two_pages.pdf"
+			else
+				l_path := {STRING_32} "/tmp/simple_cairo_two_pages.pdf"
+			end
+			create l_surface.make (l_path, 612.0, 792.0)
+			assert ("a PDF surface", l_surface.is_valid)
+			create l_context.make (l_surface.as_surface)
+			l_context.set_color_rgb (0.1, 0.2, 0.6).rectangle (72.0, 72.0, 200.0, 100.0).fill.do_nothing
+			l_context.show_page
+			assert ("healthy after page 1: " + l_context.status.out, l_context.status = 0)
+			l_context.rectangle (100.0, 100.0, 50.0, 50.0).fill.do_nothing
+			l_context.show_page
+			assert ("healthy after page 2: " + l_context.status.out, l_context.status = 0)
+			l_context.destroy
+			l_surface.destroy
+			create l_file.make_with_name (l_path)
+			assert ("the file is written: " + l_file.count.out + " bytes", l_file.exists and then l_file.count > 500)
+			l_file.delete
+		end
+
 feature -- Context Tests
 
 	test_context_creation
@@ -2176,7 +2228,7 @@ feature -- Phase D: Glyph API Tests (S07)
 		end
 
 	test_same_n_needs_explicit_antialias
-			-- THE TRAP, pinned. Measured on cairo 1.17.2 / win64.
+			-- THE TRAP, pinned (measured on cairo 1.17.2 / win64; fixed in 1.18.0).
 			--
 			-- At exactly set_font_size (N), where N is the pixel size of the
 			-- HFONT behind the face, and with the DEFAULT antialias mode,
@@ -2199,10 +2251,13 @@ feature -- Phase D: Glyph API Tests (S07)
 			-- HFONT cairo saw for a family. See `shared_test_hfont' for the
 			-- lifetime rule that falls out of the same cache.
 			--
-			-- TRIPWIRE: if cairo is upgraded and this is fixed, the
-			-- "collapses" assertion below will fail. That failure is the
-			-- signal to re-read this note and relax the workaround; it is
-			-- not a regression in simple_cairo.
+			-- TRIPWIRE, TRIPPED 2026-11-11: cairo 1.18.0 fixes it. Measured
+			-- on win64, the 16 px capital H at same-N with the DEFAULT mode:
+			-- 1.17.2 gave 1 px, 1.18.0 gives 10 px, the same as an explicit
+			-- mode. The test now pins the fix (default and explicit agree),
+			-- so a cairo that brings the collapse back fails it. The explicit
+			-- antialias that callers set (`Antialias_subpixel') is kept: it is
+			-- harmless on 1.18 and keeps ClearType.
 		note
 			testing: "covers/{CAIRO_CONTEXT}.set_font_face"
 		local
@@ -2244,8 +2299,8 @@ feature -- Phase D: Glyph API Tests (S07)
 				-- A 16 px capital H is 8-14 px tall in any Latin face.
 			assert ("explicit antialias gives a real 16 px glyph",
 				e_explicit.height >= 8.0 and e_explicit.height <= 14.0)
-			assert ("default antialias collapses at same-N (TRIPWIRE)",
-				e_default.height < 4.0)
+			assert ("default antialias no longer collapses at same-N (fixed in 1.18.0)",
+				e_default.height >= 8.0 and (e_default.height - e_explicit.height).abs < 1.0)
 			assert ("a size other than N is unaffected",
 				e_double.height > e_explicit.height * 1.5)
 
