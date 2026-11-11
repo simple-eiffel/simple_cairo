@@ -26,11 +26,10 @@ Thumbs.db
 
 lib/*
 
-# Bundled Cairo for Windows (lib/README.md says where it came from)
-!/cairo.dll
+# The fleet's cairo set for Windows (runtime/windows/README.md says where it came from)
+!/runtime/windows/*.dll
 !/lib/cairo.lib
 !/lib/README.md
-!/lib/cairo-COPYING*
 *.epr
 *.log
 

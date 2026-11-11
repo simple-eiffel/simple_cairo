@@ -2,20 +2,24 @@
 
 All notable changes to simple_cairo will be documented in this file.
 
-## Known defect (found 2026-10-25): the shipped cairo.dll cannot write PDF
+## [1.8.0] - 2026-11-11: cairo 1.18.0 for Windows, owned for the fleet
 
-The bundled cairo.dll (cairo 1.17.2, statically linked, imports only GDI32,
-MSIMG32, USER32 and KERNEL32) fails `cairo_show_page` on a PDF surface with
-CAIRO_STATUS_NO_MEMORY (1) on the FIRST page, even for one filled
-rectangle: reproduced through `CAIRO_PDF_SURFACE`, through a raw
-`cairo_pdf_surface_create` in C, through `cairo_pdf_surface_create_for_stream`
-with a byte-counting callback (so not file I/O), and with the version
-restricted to PDF 1.4. The output is a broken 507-byte file. That status is
-what cairo's deflate stream returns when zlib will not initialise, so the
-DLL's built-in zlib is the likely cause; it needs a rebuilt cairo.dll.
-`CAIRO_PDF_SURFACE` was never covered by a test here. The Windows printing
-surface (1.6.0) is not affected. simple_widgets' print jobs fall back to the
-Windows "Microsoft Print to PDF" printer until the DLL is replaced.
+- **cairo 1.18.0** replaces the bundled 1.17.2 on Windows: `runtime/windows/` holds it and
+  the six libraries it loads (fontconfig 2.14.2, freetype 2.12.1, expat 2.6.3, libpng 1.6.44,
+  pixman 0.43.4, zlib 1.3.1), byte for byte the set simple_pdf shipped (poppler-windows
+  24.08.0). Headers in `Clib/` and `lib/cairo.lib` match it. Larry's rule (2026-11-11): one
+  version per DLL name across simple_*; simple_cairo owns this set.
+- **Fixed: PDF on Windows.** 1.17.2's `cairo_show_page` failed on a PDF surface with
+  CAIRO_STATUS_NO_MEMORY at the first page (the defect recorded here on 2026-10-25). New test
+  `test_pdf_keeps_its_pages` writes two pages and checks the context after each.
+- **Fixed: the same-N glyph collapse.** At the HFONT's own size with the default antialias
+  mode, 1.17.2 drew glyphs at about 1/32 size (a 16 px H measured 1 px); 1.18.0 draws them at
+  10 px, the same as an explicit mode. `test_same_n_needs_explicit_antialias`, the tripwire
+  for this, now pins the fix.
+- **New test** `test_loaded_cairo_is_the_fleet_build`: the cairo loaded at run time is
+  exactly 1.18.0 on Windows (the 1.18 series on Linux and macOS, the system's).
+- Before this, Windows test runs on Larry's PC loaded the 1.17.2 that the installed
+  simple_bible put on PATH, not this repository's file.
 
 ## [1.7.0] - 2026-11-01
 

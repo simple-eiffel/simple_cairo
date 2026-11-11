@@ -38,7 +38,7 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 
 #### Windows
 
-Nothing to install: the repository carries Cairo 1.17.2 for x64 Windows (`cairo.dll` at the root, `lib/cairo.lib`). It's self-contained, with no other DLLs, and licensed LGPL 2.1 or MPL 1.1. See [lib/README.md](lib/README.md). Copy `cairo.dll` beside your application's executable. That DLL can't write PDF (see CHANGELOG.md); every other surface works.
+Nothing to install: the repository carries cairo 1.18.0 for x64 Windows and the six libraries it loads (fontconfig, freetype, expat, libpng, pixman, zlib), in `runtime/windows/`, with `lib/cairo.lib`. simple_cairo owns this set for the whole simple_* fleet (one version per DLL name; see [runtime/windows/README.md](runtime/windows/README.md) for versions, checksums and each library's license). The build wrapper copies the folder beside every Windows executable that uses simple_cairo; outside it, copy all seven DLLs beside your executable.
 
 #### Linux
 
@@ -153,10 +153,11 @@ measures the same run and returns six zeros for an empty one.
 
 **Same-N.** Cairo ignores the LOGFONT height and sizes through the font
 matrix, so shape at pixel size N and call `set_font_size (N)`. But at
-exactly that size, with `Antialias_default`, cairo 1.17.2 reuses your
-HFONT as its own internal scaled font (which it builds at 32 x N) and
-renders at about 1/32 size - silently. Setting any explicit antialias
-mode first avoids it; `Antialias_subpixel` keeps ClearType.
+exactly that size, with `Antialias_default`, cairo 1.17.2 reused your
+HFONT as its own internal scaled font (which it built at 32 x N) and
+rendered at about 1/32 size - silently. cairo 1.18.0 fixes this (a 16 px
+capital H: 1 px on 1.17.2, 10 px on 1.18.0). Setting an explicit antialias
+mode first is still harmless; `Antialias_subpixel` keeps ClearType.
 
 **HFONT lifetime.** Cairo's font-face cache is keyed on face name, weight
 and italic - not on your HFONT - so the face it built outlives the
