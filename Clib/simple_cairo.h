@@ -1080,6 +1080,12 @@ static cairo_font_face_t* sc_win32_face_for_logfontw_hfont(void* logfontw, void*
 }
 #endif
 
+/* A face another library built (cairo's FreeType backend over its own FT_Face,
+   say): this takes one reference, so the caller may destroy its own. */
+static cairo_font_face_t* sc_font_face_adopt(void* f) {
+    return f ? cairo_font_face_reference((cairo_font_face_t*)f) : (cairo_font_face_t*)0;
+}
+
 /* Font face: status, reference count, disposal, installation. */
 static int sc_font_face_status(cairo_font_face_t* f) {
     return f ? (int)cairo_font_face_status(f) : -1;

@@ -67,7 +67,7 @@ class
 	CAIRO_FONT_FACE
 
 create
-	make_for_hfont, make_for_logfontw_hfont
+	make_for_hfont, make_for_logfontw_hfont, make_from_handle
 
 feature {NONE} -- Initialization
 
@@ -91,6 +91,17 @@ feature {NONE} -- Initialization
 		ensure
 			both_null_is_invalid: (a_logfontw = default_pointer and
 				a_hfont = default_pointer) implies not is_valid
+		end
+
+	make_from_handle (a_face: POINTER)
+			-- A face another library built (cairo's FreeType backend over its own FT_Face,
+			-- say), on any platform; this takes one reference, so the caller may destroy its
+			-- own. A null `a_face' yields an invalid face, not an exception.
+		do
+			handle := c_face_adopt (a_face)
+		ensure
+			same_face: handle = a_face
+			null_is_invalid: a_face = default_pointer implies not is_valid
 		end
 
 feature -- Access
@@ -161,6 +172,11 @@ feature {NONE} -- C Externals
 	c_face_for_logfontw_hfont (a_logfontw, a_hfont: POINTER): POINTER
 		external "C inline use %"simple_cairo.h%""
 		alias "return sc_win32_face_for_logfontw_hfont($a_logfontw, $a_hfont);"
+		end
+
+	c_face_adopt (a_face: POINTER): POINTER
+		external "C inline use %"simple_cairo.h%""
+		alias "return sc_font_face_adopt($a_face);"
 		end
 
 	c_face_status (a_face: POINTER): INTEGER

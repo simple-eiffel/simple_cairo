@@ -119,6 +119,39 @@ feature -- The bundled build (BUILD_STANDARDS section 9)
 			l_file.delete
 		end
 
+feature -- Font faces built elsewhere
+
+	test_a_face_built_elsewhere_is_adopted
+			-- make_from_handle takes a reference to a face another library built, on every
+			-- platform; a null handle gives an invalid face, not an exception.
+		note
+			testing: "covers/{CAIRO_FONT_FACE}.make_from_handle"
+		local
+			l_face: CAIRO_FONT_FACE
+			l_raw: POINTER
+		do
+			create l_face.make_from_handle (default_pointer)
+			assert ("a null handle is invalid", not l_face.is_valid)
+			l_raw := c_toy_face
+			assert ("cairo made a face", l_raw /= default_pointer)
+			create l_face.make_from_handle (l_raw)
+			assert ("adopted and valid", l_face.is_valid and l_face.handle = l_raw)
+			assert ("one more reference: " + l_face.reference_count.out, l_face.reference_count = 2)
+			c_destroy_face (l_raw)
+			assert ("ours outlives the maker's", l_face.is_valid and l_face.reference_count = 1)
+			l_face.destroy
+		end
+
+	c_toy_face: POINTER
+		external "C inline use <cairo.h>"
+		alias "return (EIF_POINTER) cairo_toy_font_face_create (%"sans-serif%", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);"
+		end
+
+	c_destroy_face (a_face: POINTER)
+		external "C inline use <cairo.h>"
+		alias "cairo_font_face_destroy ((cairo_font_face_t *) $a_face);"
+		end
+
 feature -- Context Tests
 
 	test_context_creation
