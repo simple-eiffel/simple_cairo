@@ -22,7 +22,10 @@
 				<platform value="windows"/>
 			</condition>
 		</external_object>
-		<external_linker_flag value="-L/opt/homebrew/lib -lcairo">
+		<!-- Homebrew's prefix: /opt/homebrew on Apple Silicon, /usr/local on Intel. ECF conditions
+		     can't tell the two apart (Homebrew's EiffelStudio says macosx-x86-64 on both), so both
+		     are searched; the one that doesn't exist is only a linker warning. -->
+		<external_linker_flag value="-L/opt/homebrew/lib -L/usr/local/lib -lcairo">
 			<condition>
 				<platform value="macintosh"/>
 			</condition>
