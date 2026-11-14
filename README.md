@@ -26,11 +26,11 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 - **Colors** - RGB, RGBA, hex color support
 - **Gradients** - Linear and radial gradients with color stops
 - **Text** - Font selection, sizing, and rendering
-- **Glyphs** - Paint pre-shaped glyph runs through a Windows HFONT
+- **Glyphs** - Paint pre-shaped glyph runs through a Windows HFONT (or a cairo font face on macOS/Linux)
 - **Transforms** - Translate, scale, rotate
 - **Waveforms** - Audio visualization for speech applications
 - **PNG Export** - Save surfaces to PNG files
-- **Printing** - `CAIRO_SURFACE.make_for_printer_dc` prints vector pages onto a Windows printer device context; `CAIRO_CONTEXT.show_page` ends a page (1.6.0)
+- **Printing** - `CAIRO_SURFACE.make_for_printer_dc` prints vector pages onto a Windows printer device context (on macOS/Linux, pass a cairo surface such as a PDF surface); `CAIRO_CONTEXT.show_page` ends a page (1.6.0)
 
 ## Installation
 
@@ -40,6 +40,14 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 
 Nothing to install: the repository carries cairo 1.18.0 for x64 Windows and the six libraries it loads (fontconfig, freetype, expat, libpng, pixman, zlib), in `runtime/windows/`, with `lib/cairo.lib`. simple_cairo owns this set for the whole simple_* fleet (one version per DLL name; see [runtime/windows/README.md](runtime/windows/README.md) for versions, checksums and each library's license). The build wrapper copies the folder beside every Windows executable that uses simple_cairo; outside it, copy all seven DLLs beside your executable.
 
+#### macOS
+
+```bash
+brew install cairo
+```
+
+The ECF looks in both Homebrew prefixes: `/opt/homebrew/lib` (Apple Silicon) and `/usr/local/lib` (Intel).
+
 #### Linux
 
 ```bash
@@ -47,6 +55,10 @@ sudo apt install libcairo2-dev   # Debian/Ubuntu
 sudo dnf install cairo-devel     # Fedora
 sudo pacman -S cairo             # Arch
 ```
+
+### macOS and Linux
+
+Image surfaces, drawing, text, PNG, PDF and SVG work. The calls that take an HFONT, a screen DC or a printer DC on Windows take cairo objects instead, and `make_for_logfontw_hfont` returns null off Windows. Nine Windows-only tests (glyph painting, the Win32 surface, the printing surface) are skipped there.
 
 ### Add to Your ECF
 
@@ -173,12 +185,12 @@ and poisons the shared face for the rest of the process.
 | CAIRO_SURFACE | Image surface wrapper |
 | CAIRO_CONTEXT | Drawing context with fluent API |
 | CAIRO_GRADIENT | Linear and radial gradient patterns |
-| CAIRO_FONT_FACE | Font face over a Windows HFONT, for glyph painting |
+| CAIRO_FONT_FACE | Font face over a Windows HFONT (or a cairo font face on macOS/Linux), for glyph painting |
 | CAIRO_GLYPH_ARRAY | Marshalled cairo_glyph_t run: ids + absolute positions |
 
 ## Dependencies
 
-- Cairo library (libcairo)
+- Cairo 1.18 (bundled on Windows; system libcairo on macOS and Linux)
 - ISE EiffelBase
 
 ## License
