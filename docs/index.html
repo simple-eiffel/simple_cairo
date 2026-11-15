@@ -270,6 +270,13 @@
     grad.destroy
 <span class="keyword">end</span></code></pre>
         </section>
+
+        <section id="platforms">
+            <h2>Platforms</h2>
+            <p>Tested on Windows, Linux and macOS (see the README's badges).</p>
+            <p>Image surfaces, drawing, text, PNG, PDF and SVG work. The calls that take an HFONT, a screen DC or a printer DC on Windows take cairo objects instead, and <code>make_for_logfontw_hfont</code> returns null off Windows. Nine Windows-only tests (glyph painting, the Win32 surface, the printing surface) are skipped there.</p>
+        </section>
+
     </main>
 
     <footer>
