@@ -41,6 +41,8 @@ feature {NONE} -- Test Execution
 
 			run_test (agent l_tests.test_loaded_cairo_is_the_fleet_build, "test_loaded_cairo_is_the_fleet_build")
 			run_test (agent l_tests.test_loaded_freetype_is_the_fleet_build, "test_loaded_freetype_is_the_fleet_build")
+			run_test (agent l_tests.test_loaded_expat_is_the_fleet_build, "test_loaded_expat_is_the_fleet_build")
+			run_test (agent l_tests.test_loaded_libpng_is_the_fleet_build, "test_loaded_libpng_is_the_fleet_build")
 			run_test (agent l_tests.test_pdf_keeps_its_pages, "test_pdf_keeps_its_pages")
 			run_test (agent l_tests.test_a_face_built_elsewhere_is_adopted, "test_a_face_built_elsewhere_is_adopted")
 			run_test (agent l_tests.test_surface_creation, "test_surface_creation")

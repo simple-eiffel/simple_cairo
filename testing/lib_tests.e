@@ -93,6 +93,26 @@ feature -- The bundled build (BUILD_STANDARDS section 9)
 			end
 		end
 
+	test_loaded_expat_is_the_fleet_build
+			-- On Windows the libexpat.dll that fontconfig-1.dll loads is the fleet's 2.9.0
+			-- from runtime/windows (2.6.3 until 2026-11-23: 33 CVEs fixed since, per Expat's
+			-- Changes file). Linux and macOS use the system's; nothing to check there.
+		do
+			if {PLATFORM}.is_windows then
+				assert ("Expat 2.9.0 loaded (read " + c_loaded_expat_version.out + ")", c_loaded_expat_version = 20900)
+			end
+		end
+
+	test_loaded_libpng_is_the_fleet_build
+			-- On Windows the libpng16.dll that cairo.dll loads is the fleet's 1.6.59 from
+			-- runtime/windows (1.6.44 until 2026-11-23: 12 CVEs fixed since, seven rated high,
+			-- per libpng's CHANGES file). Linux and macOS use the system's.
+		do
+			if {PLATFORM}.is_windows then
+				assert ("libpng 1.6.59 loaded (read " + c_loaded_libpng_version.out + ")", c_loaded_libpng_version = 10659)
+			end
+		end
+
 	test_pdf_keeps_its_pages
 			-- A PDF of two pages: the context stays healthy past each page. (cairo 1.17.2's
 			-- Windows build failed here with CAIRO_STATUS_NO_MEMORY at the first page.)
