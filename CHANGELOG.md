@@ -2,6 +2,21 @@
 
 All notable changes to simple_cairo will be documented in this file.
 
+## [1.8.1] - 2026-11-22: FreeType 2.14.3 for Windows
+
+- **Security:** `runtime/windows/freetype.dll` is FreeType 2.14.3 (conda-forge
+  `libfreetype6-2.14.3-hdbac1cb_2`), replacing 2.12.1, which has CVE-2025-27363 (an
+  out-of-bounds write on crafted font files, on CISA's exploited list; fixed in 2.13.3). Same
+  imports; it exports every function cairo.dll and fontconfig-1.dll call. The other six DLLs
+  are unchanged. Licenses updated to the 2.14.3 texts.
+- **New test** `test_loaded_freetype_is_the_fleet_build`: the freetype.dll cairo.dll loaded is
+  2.14.3 on Windows (fails on 2.12.1: 94 passed, 1 failed).
+- `ec.sh` now puts `runtime/windows/` on PATH for test runs of simple_cairo and every library
+  that uses it. Since simple_bible 0.7.68 stopped putting its install folder on PATH, Windows
+  test programs could not find cairo.dll (exit 127).
+- Tested on Windows: simple_cairo 95/0, simple_shaping 97/0 (draws Windows text through
+  FreeType), simple_pdf 14/0, simple_spec_viz and simple_graphviz 72/0 all pass.
+
 ## [1.8.0] - 2026-11-11: cairo 1.18.0 for Windows, owned for the fleet
 
 - **cairo 1.18.0** replaces the bundled 1.17.2 on Windows: `runtime/windows/` holds it and

@@ -83,6 +83,16 @@ feature -- The bundled build (BUILD_STANDARDS section 9)
 			end
 		end
 
+	test_loaded_freetype_is_the_fleet_build
+			-- On Windows the freetype.dll that cairo.dll loads is the fleet's 2.14.3 from
+			-- runtime/windows (2.12.1 until 2026-11-22: CVE-2025-27363, a heap write on
+			-- crafted font files). Linux and macOS use the system's; nothing to check there.
+		do
+			if {PLATFORM}.is_windows then
+				assert ("FreeType 2.14.3 loaded (read " + c_loaded_freetype_version.out + ")", c_loaded_freetype_version = 21403)
+			end
+		end
+
 	test_pdf_keeps_its_pages
 			-- A PDF of two pages: the context stays healthy past each page. (cairo 1.17.2's
 			-- Windows build failed here with CAIRO_STATUS_NO_MEMORY at the first page.)

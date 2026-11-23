@@ -54,4 +54,7 @@ feature {NONE} -- Stand-ins
 		do
 		end
 
+	c_loaded_freetype_version: INTEGER = 0
+			-- Linux and macOS load the system's FreeType through the system cairo.
+
 end

@@ -105,4 +105,22 @@ feature {NONE} -- Win32 test externals
 		alias "DeleteEnhMetaFile((HENHMETAFILE)$a_emf);"
 		end
 
+	c_loaded_freetype_version: INTEGER
+			-- The version of the freetype.dll cairo.dll loaded, as major * 10000 +
+			-- minor * 100 + patch (FT_Library_Version), or 0 if none is loaded.
+		external "C inline use <windows.h>"
+		alias "typedef int (*ssft_init)(void**);%
+			%typedef void (*ssft_version)(void*, int*, int*, int*);%
+			%typedef int (*ssft_done)(void*);%
+			%HMODULE m = GetModuleHandleW(L%"freetype.dll%");%
+			%void* lib = 0; int a = 0, b = 0, c = 0;%
+			%if (m) {%
+			%  ssft_init i = (ssft_init)(void*)GetProcAddress(m, %"FT_Init_FreeType%");%
+			%  ssft_version v = (ssft_version)(void*)GetProcAddress(m, %"FT_Library_Version%");%
+			%  ssft_done d = (ssft_done)(void*)GetProcAddress(m, %"FT_Done_FreeType%");%
+			%  if (i && v && d && i(&lib) == 0) { v(lib, &a, &b, &c); d(lib); }%
+			%}%
+			%return a * 10000 + b * 100 + c;"
+		end
+
 end

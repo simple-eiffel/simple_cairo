@@ -12,12 +12,19 @@ simple_cairo.
 |---|---|---|---|---|
 | `cairo.dll` | 1.18.0 | 1,016,320 | `c690978c5be8486d` | LGPL 2.1 or MPL 1.1 (`cairo-COPYING*`) |
 | `fontconfig-1.dll` | 2.14.2 | 282,624 | `cfce15422bcf0fce` | MIT-style (`fontconfig-COPYING`) |
-| `freetype.dll` | 2.12.1 | 670,720 | `f878121d560f43c3` | FreeType License (`freetype-LICENSE.TXT`, `freetype-FTL.TXT`) |
+| `freetype.dll` | 2.14.3 | 684,032 | `7a7fb5cf51bfab4f` | FreeType License (`freetype-LICENSE.TXT`, `freetype-FTL.TXT`) |
 | `libexpat.dll` | 2.6.3 | 402,432 | `1eef16676ab7cabc` | MIT (`expat-COPYING`) |
 | `libpng16.dll` | 1.6.44 | 196,608 | `54789e18aceb43b5` | libpng license (`libpng-LICENSE`) |
 | `pixman-1-0.dll` | 0.43.4 | 592,896 | `3686735bc0d04989` | MIT (`pixman-COPYING`) |
 | `zlib.dll` | 1.3.1 | 89,088 | `7d86de8659d728d0` | zlib license (`zlib-LICENSE`) |
 
+- **freetype.dll 2.14.3 (2026-11-22)** replaced poppler-windows' 2.12.1, which has CVE-2025-27363
+  (an out-of-bounds write on crafted font files, on CISA's exploited list; fixed in 2.13.3). It is
+  conda-forge `libfreetype6-2.14.3-hdbac1cb_2` (the source poppler-windows builds from; package
+  SHA-256 `cbc650854003e434d4ff6c7b1a2667e38a4242ad8a391a1c5ff89721624065ce`, as published). Same
+  imports (zlib.dll, libpng16.dll, and nothing from them that 1.3.1 and 1.6.44 lack), 220 exports
+  covering all 33 cairo.dll and 22 fontconfig-1.dll call. `test_loaded_freetype_is_the_fleet_build`
+  pins it.
 - **Versions** were read from the DLLs themselves at run time (`cairo_version_string`,
   `FcGetVersion`, `FT_Library_Version`, `pixman_version_string`, `png_get_libpng_ver`,
   `XML_ExpatVersion`, `zlibVersion`), loading this folder alone.
