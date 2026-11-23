@@ -57,4 +57,10 @@ feature {NONE} -- Stand-ins
 	c_loaded_freetype_version: INTEGER = 0
 			-- Linux and macOS load the system's FreeType through the system cairo.
 
+	c_loaded_expat_version: INTEGER = 0
+			-- Linux and macOS load the system's Expat through the system fontconfig.
+
+	c_loaded_libpng_version: INTEGER = 0
+			-- Linux and macOS load the system's libpng through the system cairo.
+
 end

@@ -2,6 +2,21 @@
 
 All notable changes to simple_cairo will be documented in this file.
 
+## [1.8.2] - 2026-11-23: Expat 2.9.0 and libpng 1.6.59 for Windows
+
+- **Security:** `runtime/windows/libexpat.dll` is Expat 2.9.0 (conda-forge
+  `libexpat-2.9.0-hac47afa_0`) and `libpng16.dll` is libpng 1.6.59 (`libpng-1.6.59-hdc8cecf_0`),
+  replacing 2.6.3 and 1.6.44. Expat's `Changes` lists 33 CVEs fixed after 2.6.3; libpng's
+  `CHANGES` lists 12 after 1.6.44, seven rated high. Neither drops an export. fontconfig-1.dll
+  imports Expat by ordinal, and all 11 ordinals name the same functions in 2.9.0; cairo.dll,
+  freetype.dll and poppler.dll find every libpng function they import, and libpng's 10 zlib
+  imports are all in zlib 1.3.1. Licenses updated to the 2.9.0 and 1.6.59 texts.
+- **New tests** `test_loaded_expat_is_the_fleet_build` and `test_loaded_libpng_is_the_fleet_build`:
+  the loaded DLLs report 2.9.0 and 1.6.59 on Windows (both fail on the old files: 95 passed,
+  2 failed).
+- Tested: simple_cairo Windows 97/0 and Linux 88/0, simple_shaping 97/0, simple_pdf 14/0,
+  simple_spec_viz and simple_graphviz 72/0.
+
 ## [1.8.1] - 2026-11-22: FreeType 2.14.3 for Windows
 
 - **Security:** `runtime/windows/freetype.dll` is FreeType 2.14.3 (conda-forge

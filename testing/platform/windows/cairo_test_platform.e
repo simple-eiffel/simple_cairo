@@ -123,4 +123,30 @@ feature {NONE} -- Win32 test externals
 			%return a * 10000 + b * 100 + c;"
 		end
 
+	c_loaded_expat_version: INTEGER
+			-- The version of the libexpat.dll fontconfig-1.dll loaded, as major * 10000 +
+			-- minor * 100 + micro (XML_ExpatVersionInfo), or 0 if none is loaded.
+		external "C inline use <windows.h>"
+		alias "typedef struct { int major; int minor; int micro; } ssxv_version;%
+			%typedef ssxv_version (*ssxv_info)(void);%
+			%HMODULE m = GetModuleHandleW(L%"libexpat.dll%");%
+			%ssxv_version v = {0, 0, 0};%
+			%if (m) {%
+			%  ssxv_info f = (ssxv_info)(void*)GetProcAddress(m, %"XML_ExpatVersionInfo%");%
+			%  if (f) { v = f(); }%
+			%}%
+			%return v.major * 10000 + v.minor * 100 + v.micro;"
+		end
+
+	c_loaded_libpng_version: INTEGER
+			-- The version of the libpng16.dll cairo.dll loaded, as png_access_version_number
+			-- gives it (major * 10000 + minor * 100 + release), or 0 if none is loaded.
+		external "C inline use <windows.h>"
+		alias "typedef unsigned int (*sspng_version)(void);%
+			%HMODULE m = GetModuleHandleW(L%"libpng16.dll%");%
+			%sspng_version f = 0;%
+			%if (m) { f = (sspng_version)(void*)GetProcAddress(m, %"png_access_version_number%"); }%
+			%return f ? (int)f() : 0;"
+		end
+
 end
